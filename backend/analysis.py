@@ -1,4 +1,4 @@
-# Musslop - audio analysis: beats, bars, structural segmentation.
+# Musloop - audio analysis: beats, bars, structural segmentation.
 #
 # Theory the segmentation is based on:
 #  1. Beat tracking: onset envelope + dynamic programming (Ellis, 2007).
@@ -137,7 +137,7 @@ def estimate_meter(accents: np.ndarray, feats: np.ndarray | None = None) -> dict
       2. Repetition: self-similarity of beat-synchronous chroma/timbre at
          lags that are multiples of 3 but not 4 (3, 9, 15) vs. multiples of
          4 but not 3 (4, 8, 16). Music repeats in whole bars.
-    The prior favours 4/4 (by far the most common in the genres musslop is
+    The prior favours 4/4 (by far the most common in the genres musloop is
     used for): 3 wins only with a clear margin."""
     n = len(accents)
     out = {"beats_per_bar": 4, "confidence": 0.0, "source": "heuristic",

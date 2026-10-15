@@ -1,11 +1,11 @@
 @echo off
-rem One-command setup for musslop on Windows (core, no AI engines).
+rem One-command setup for musloop on Windows (core, no AI engines).
 rem Creates .venv\ and installs everything needed for run.bat.
 rem ffmpeg is bundled automatically via the imageio-ffmpeg package.
 setlocal
 cd /d "%~dp0"
 
-echo == musslop setup (Windows) ==
+echo == musloop setup (Windows) ==
 
 rem Prefer the "py" launcher (installed by python.org): "python" may be the
 rem Microsoft Store stub that only opens the Store.

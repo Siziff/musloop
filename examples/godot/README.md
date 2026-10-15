@@ -1,7 +1,7 @@
-# musslop → Godot 4 example
+# musloop → Godot 4 example
 
 A minimal adaptive-music player for Godot 4 that reads the `manifest.json`
-produced by musslop's **Files → Loops (zip)** export.
+produced by musloop's **Files → Loops (zip)** export.
 
 ```text
 res://music/tavern/
@@ -14,20 +14,20 @@ res://music/tavern/
 
 ## Use
 
-1. In musslop, prepare the track (sections, loop flags, scenes) and export
+1. In musloop, prepare the track (sections, loop flags, scenes) and export
    **Loops (zip)**. Unzip it into your Godot project, e.g. `res://music/tavern/`.
 2. Import the WAVs (Godot imports `.wav` automatically). In the Import dock you
    may set **Loop Mode: Disabled** — the script handles looping itself so that
    transitions can land on boundaries.
-3. Add `MusslopPlayer.gd` to a `Node` and set `manifest_path` in the inspector.
+3. Add `MusloopPlayer.gd` to a `Node` and set `manifest_path` in the inspector.
 4. Call from gameplay:
 
 ```gdscript
 $Music.play_loop(0)                 # start looping loop #0
-$Music.cue(2, MusslopPlayer.Cue.NATURAL)  # switch to loop #2 at the loop end
-$Music.cue(3, MusslopPlayer.Cue.SOON)     # ...at the next transition point (phrase)
-$Music.cue(1, MusslopPlayer.Cue.NOW)      # ...immediately with a crossfade
-$Music.cue_scene("Combat")          # use a scene saved in musslop (its loop + cue mode)
+$Music.cue(2, MusloopPlayer.Cue.NATURAL)  # switch to loop #2 at the loop end
+$Music.cue(3, MusloopPlayer.Cue.SOON)     # ...at the next transition point (phrase)
+$Music.cue(1, MusloopPlayer.Cue.NOW)      # ...immediately with a crossfade
+$Music.cue_scene("Combat")          # use a scene saved in musloop (its loop + cue mode)
 $Music.cancel_cue()                 # stay in the current loop
 $Music.fade_out(2.0)
 ```
@@ -42,7 +42,7 @@ $Music.fade_out(2.0)
 | `loops[i].transition_points_sec` | phrase boundaries inside the loop (every `phrase_bars` bars, default 4) for `SOON` cues; bar length is `beats_per_bar` |
 | `loops[i].tail_file` | the audio right after the loop end — play it over the next loop's start |
 | `loops[i].stinger` | `cymbal` / `boom` / `riser` — an accent you may play on entry |
-| `scenes[]` | musslop scenes: `loop_index`, `cue`, `layers`, `hotkey` |
+| `scenes[]` | musloop scenes: `loop_index`, `cue`, `layers`, `hotkey` |
 
 The script uses two `AudioStreamPlayer`s (A/B) and schedules the swap by
 polling `get_playback_position()` in `_process`, which is accurate to one

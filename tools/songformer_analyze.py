@@ -101,18 +101,18 @@ def run_beats_fallback(audio: str):
 def _patched_infer(sf_dir: str) -> str:
     """The official infer.py hardcodes device = f"cuda:{rank}" — on Macs that
     silently means CPU-only (minutes instead of seconds). Write a patched copy
-    next to it that picks cuda -> mps -> cpu (or MUSSLOP_SF_DEVICE)."""
+    next to it that picks cuda -> mps -> cpu (or MUSLOOP_SF_DEVICE)."""
     src_path = os.path.join(sf_dir, "infer", "infer.py")
     with open(src_path) as f:
         src = f.read()
     patched = src.replace(
         'device = f"cuda:{rank}"',
-        'device = os.environ.get("MUSSLOP_SF_DEVICE") or ('
+        'device = os.environ.get("MUSLOOP_SF_DEVICE") or ('
         'f"cuda:{rank}" if torch.cuda.is_available() else '
         '"mps" if getattr(torch.backends, "mps", None) '
         'and torch.backends.mps.is_available() else "cpu")',
     )
-    out_path = os.path.join(sf_dir, "infer", "infer_musslop.py")
+    out_path = os.path.join(sf_dir, "infer", "infer_musloop.py")
     # rewrite only when stale so repeated runs stay cheap
     try:
         with open(out_path) as f:

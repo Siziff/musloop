@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner-editorial.svg" alt="musslop — Your music. Your timing. Loop a moment, then cue the next section." width="100%">
+  <img src="assets/banner-editorial.svg" alt="musloop — Your music. Your timing. Loop a moment, then cue the next section." width="100%">
 </p>
 
 <h3 align="center">Make your music fit the scene.</h3>
@@ -18,16 +18,16 @@
   Loop a section · cue the next one · export loops for your game
 </p>
 
-**musslop** is a free, open-source tool for adapting music tracks to the pacing of
+**musloop** is a free, open-source tool for adapting music tracks to the pacing of
 **TTRPG sessions and video game prototypes**. Keep a section looping while a scene
 unfolds, then hit **Next** to cue a transition on a musical boundary.
 
-You control the transitions yourself: musslop doesn't listen to your session or
+You control the transitions yourself: musloop doesn't listen to your session or
 automatically react to gameplay. It helps you work with existing tracks rather than
 generating new music.
 
 <p align="center">
-  <img src="demo_classic_zoom.gif" alt="Musslop demo: select a section, start a loop, then cue the next section with the Next button" width="800">
+  <img src="demo_classic_zoom.gif" alt="Musloop demo: select a section, start a loop, then cue the next section with the Next button" width="800">
 </p>
 <p align="center"><em>30-second silent demo: select → loop → cue → transition.</em></p>
 
@@ -58,7 +58,7 @@ models have been downloaded. This is a personal passion project, shared freely.
   **Shift+1–9**, from any track.
 - **Projects (set lists)** — group tracks and scenes for a session or a game level, with notes,
   and open any of them in one click.
-- **Music folders** — point musslop at a folder on your disk and every track inside is one
+- **Music folders** — point musloop at a folder on your disk and every track inside is one
   click away (☰ → Folders).
 
 **Transitions that land where you want**
@@ -68,7 +68,7 @@ models have been downloaded. This is a personal passion project, shared freely.
   you can check a boundary in 6 seconds instead of waiting for the whole loop.
 
 **Meter (time signature)**
-- musslop now **detects the meter** (3/4 vs 4/4) instead of assuming 4/4 for every track; it is
+- musloop now **detects the meter** (3/4 vs 4/4) instead of assuming 4/4 for every track; it is
   shown next to the BPM. Waltzes and other 3/4 tracks get a correct bar grid, loops and phrases.
 - Not right? Click the badge: choose **2/4 … 7/4, 6/8**, or **shift the downbeat** by a beat. The
   original (detected) meter stays the recommended default, and your choice is saved with the track.
@@ -122,7 +122,7 @@ you can try those before installing the optional neural engines.
 Linux / macOS:
 
 ```bash
-git clone https://github.com/Siziff/musslop.git && cd musslop
+git clone https://github.com/Siziff/musloop.git && cd musloop
 ./setup.sh   # creates .venv, installs everything (incl. a bundled ffmpeg)
 ./run.sh     # → http://localhost:8801
 ```
@@ -130,8 +130,8 @@ git clone https://github.com/Siziff/musslop.git && cd musslop
 Windows (needs [Python 3.10+](https://python.org) with "Add to PATH" checked):
 
 ```bat
-git clone https://github.com/Siziff/musslop.git
-cd musslop
+git clone https://github.com/Siziff/musloop.git
+cd musloop
 setup.bat
 run.bat      # → http://localhost:8801
 ```
@@ -143,22 +143,22 @@ ffmpeg is downloaded automatically with the dependencies — no manual install n
 No Python needed — just [Docker](https://docs.docker.com/get-docker/) (Docker Desktop on Windows / macOS):
 
 ```bash
-git clone https://github.com/Siziff/musslop.git && cd musslop
+git clone https://github.com/Siziff/musloop.git && cd musloop
 docker compose up -d        # → http://localhost:8801
 ```
 
 - The image is about 600 MB and runs on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5).
-- Your tracks, markups and projects live in the `musslop-data` volume and survive updates:
+- Your tracks, markups and projects live in the `musloop-data` volume and survive updates:
   `git pull && docker compose up -d --build`.
 - To use ☰ → **Folders**, uncomment the music folder line in `docker-compose.yml`
-  and add `/music` inside musslop. The *Pick folder…* dialog does not work in Docker; type the path.
+  and add `/music` inside musloop. The *Pick folder…* dialog does not work in Docker; type the path.
 - The AI engines (SongFormer, All-In-One) are not included: they need several GB of PyTorch.
   Use the native setup for them.
 - By default the app is only reachable from this computer. To open it to your LAN (e.g. a tablet
   at the table), change the port line to `"8801:8801"`.
 
-Without Compose: `docker build -t musslop .` then
-`docker run -d -p 8801:8801 -v musslop-data:/data musslop`.
+Without Compose: `docker build -t musloop .` then
+`docker run -d -p 8801:8801 -v musloop-data:/data musloop`.
 
 ## Your first loop
 
@@ -180,7 +180,7 @@ Without Compose: `docker build -t musslop .` then
    **Save scene**. Repeat for every mood you need from this track. Scenes get hotkeys Shift+1–9; plain digits 1–9, 0 cue parts 1–10.
 2. Optionally create a **Project** (☰ → Project): groups like *Arrival / Inside / Finale* with the
    tracks and scenes of the session, plus notes. Items open in one click and start their scene.
-   ☰ → Folders lets you point musslop at your music folder so every file is one click away.
+   ☰ → Folders lets you point musloop at your music folder so every file is one click away.
 3. At the table press **L** for **Live mode**: a full-screen desk with the current part, what
    comes next and when, scene pads, **Next**, **Cancel** and **Fade out** (`F`). Switch tracks
    right there: **◀ / ▶** or `[` / `]` step through the open project (or your library), `T`
@@ -220,9 +220,9 @@ the Chorus on the next phrase. At the table that's **Shift+1** while players loo
 
 ### The markup file
 
-**Files → ⤓ Markup** downloads a `*.musslop.json`. Drop it into musslop
+**Files → ⤓ Markup** downloads a `*.musloop.json`. Drop it into musloop
 together with the audio to restore everything. The full file for this example is
-[`examples/markup/Splendorius - Oblivion Roses.musslop.json`](examples/markup/Splendorius%20-%20Oblivion%20Roses.musslop.json);
+[`examples/markup/Splendorius - Oblivion Roses.musloop.json`](examples/markup/Splendorius%20-%20Oblivion%20Roses.musloop.json);
 shortened:
 
 ```json
@@ -299,8 +299,8 @@ and hardware; results are cached.
 
 ## Feedback and support
 
-Trying musslop at your table or in a game audio workflow? Share what worked and
-what got in the way in [GitHub Issues](https://github.com/Siziff/musslop/issues).
+Trying musloop at your table or in a game audio workflow? Share what worked and
+what got in the way in [GitHub Issues](https://github.com/Siziff/musloop/issues).
 For analysis or playback problems, include your OS, analysis engine, and steps to
 reproduce the issue.
 

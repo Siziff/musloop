@@ -10,11 +10,11 @@ cd /d "%~dp0"
 
 set "SF_REPO=https://github.com/ASLP-lab/SongFormer"
 set "SF_REF=139b2aa3b14bd1c6d961d0994e9fc975f1ef7fd5"
-if defined MUSSLOP_SONGFORMER_REF set "SF_REF=%MUSSLOP_SONGFORMER_REF%"
+if defined MUSLOOP_SONGFORMER_REF set "SF_REF=%MUSLOOP_SONGFORMER_REF%"
 set "TORCH_PKGS=torch==2.6.0 torchaudio==2.6.0 torchvision==0.21.0"
 set "DEPS=transformers==4.51.1 muq==0.1.0 beat_this==1.1.0 msaf==0.1.80 x_transformers==2.28.4 ema_pytorch==0.8.3 demucs==4.1.0 mir_eval==0.8.2 omegaconf==2.3.1 einops==0.8.2 loguru numpy librosa soundfile certifi"
 
-echo == musslop AI setup: SongFormer + Beat This (Windows) ==
+echo == musloop AI setup: SongFormer + Beat This (Windows) ==
 
 rem --- pick a Python torch 2.6 supports: 3.10-3.13, prefer 3.12 (py launcher) ---
 set "PY="

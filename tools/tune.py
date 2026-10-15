@@ -5,7 +5,7 @@ Usage:
   1. Annotate tracks in the UI and save the markup ("Markup" button).
   2. Put the pairs into the examples/ directory:
        examples/track1.mp3
-       examples/track1.musslop.json   (name = track name + .musslop.json)
+       examples/track1.musloop.json   (name = track name + .musloop.json)
   3. Evaluate the current algorithm:
        python3 tools/tune.py examples/
      Search for _boundary_score weights (grid search):
@@ -31,10 +31,11 @@ def load_pairs(directory: str) -> list[tuple[str, list[float]]]:
     """[(audio_path, [boundaries in sec, without 0 and the end])]."""
     pairs = []
     for fn in sorted(os.listdir(directory)):
-        if not fn.endswith(".musslop.json"):
+        ext = next((e for e in (".musloop.json", ".musslop.json") if fn.endswith(e)), None)
+        if not ext:
             continue
         meta = json.load(open(os.path.join(directory, fn)))
-        base = fn[: -len(".musslop.json")]
+        base = fn[: -len(ext)]
         audio = None
         for ext in (".mp3", ".wav", ".ogg", ".flac", ".m4a"):
             p = os.path.join(directory, base + ext)
@@ -101,7 +102,7 @@ def main():
 
     pairs = load_pairs(args.directory)
     if not pairs:
-        print("No pairs found. Need files like track.mp3 + track.musslop.json")
+        print("No pairs found. Need files like track.mp3 + track.musloop.json")
         return
     print(f"Pairs found: {len(pairs)}")
 

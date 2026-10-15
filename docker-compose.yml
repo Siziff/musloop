@@ -1,21 +1,21 @@
-# musslop with Docker Compose:
+# musloop with Docker Compose:
 #   docker compose up -d        -> http://localhost:8801
 #   docker compose logs -f      (server log)
-#   docker compose down         (stop; your tracks stay in the "musslop-data" volume)
+#   docker compose down         (stop; your tracks stay in the "musloop-data" volume)
 services:
-  musslop:
+  musloop:
     build: .
-    image: musslop
-    container_name: musslop
+    image: musloop
+    container_name: musloop
     ports:
       # bound to this computer only; change to "8801:8801" to open it to your LAN
       - "127.0.0.1:8801:8801"
     volumes:
-      - musslop-data:/data
+      - musloop-data:/data
       # Optional: make a music folder on your disk visible to ☰ → Folders.
-      # Inside musslop add the folder as /music.
+      # Inside musloop add the folder as /music.
       # - /path/to/your/music:/music:ro
     restart: unless-stopped
 
 volumes:
-  musslop-data:
+  musloop-data:

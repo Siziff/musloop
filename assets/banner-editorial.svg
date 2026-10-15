@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="440" viewBox="0 0 1440 440" role="img" aria-labelledby="title desc">
-<title id="title">musslop — Your music. Your timing.</title>
+<title id="title">musloop — Your music. Your timing.</title>
 <desc id="desc">A musical loop continues until your cue moves it into the next section. Free and open source tools for tabletop sessions and game prototypes.</desc>
 <defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity=".035"/></pattern><linearGradient id="panel" x2="1" y2="1"><stop stop-color="#242933"/><stop offset="1" stop-color="#15191f"/></linearGradient></defs>
 <rect width="1440" height="440" rx="20" fill="#111419"/><rect width="1440" height="440" rx="20" fill="url(#grid)"/>
 <path d="M64 64H105" stroke="#d8ff3e" stroke-width="5"/>
-<text x="64" y="139" fill="#f7f7ef" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="800" letter-spacing="-4">musslop<tspan fill="#d8ff3e">_</tspan></text>
+<text x="64" y="139" fill="#f7f7ef" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="800" letter-spacing="-4">musloop<tspan fill="#d8ff3e">_</tspan></text>
 <text x="66" y="205" fill="#f7f7ef" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="600">Your music. Your timing.</text>
 <text x="66" y="248" fill="#9fa8b5" font-family="Arial,Helvetica,sans-serif" font-size="19">Loop a moment. Cue what comes next.</text>
 <rect x="66" y="302" width="190" height="34" rx="17" fill="#d8ff3e"/>

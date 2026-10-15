@@ -1,7 +1,7 @@
-# musslop — Docker image (core app: fast analysis, editor, player, export).
+# musloop — Docker image (core app: fast analysis, editor, player, export).
 #
-#   docker build -t musslop .
-#   docker run -d --name musslop -p 8801:8801 -v musslop-data:/data musslop
+#   docker build -t musloop .
+#   docker run -d --name musloop -p 8801:8801 -v musloop-data:/data musloop
 #   -> http://localhost:8801
 #
 # Or: docker compose up -d   (see docker-compose.yml)
@@ -32,26 +32,26 @@ RUN /venv/bin/pip install --upgrade pip \
 
 # ---------- runtime ----------
 FROM python:${PYTHON_VERSION}-slim
-RUN useradd --create-home --uid 1000 musslop \
- && mkdir -p /data && chown musslop:musslop /data
+RUN useradd --create-home --uid 1000 musloop \
+ && mkdir -p /data && chown musloop:musloop /data
 
 COPY --from=build /venv /venv
 WORKDIR /app
-COPY --chown=musslop:musslop backend ./backend
-COPY --chown=musslop:musslop frontend ./frontend
-COPY --chown=musslop:musslop LICENSE README.md ./
+COPY --chown=musloop:musloop backend ./backend
+COPY --chown=musloop:musloop frontend ./frontend
+COPY --chown=musloop:musloop LICENSE README.md ./
 
 ENV PATH="/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    MUSSLOP_DATA=/data \
+    MUSLOOP_DATA=/data \
     NUMBA_CACHE_DIR=/tmp/numba \
     PORT=8801
 
 # the served page must be the prebuilt one (index.prod.html newer than index.html)
 RUN touch frontend/index.prod.html frontend/app.js
 
-USER musslop
+USER musloop
 VOLUME ["/data"]
 EXPOSE 8801
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \

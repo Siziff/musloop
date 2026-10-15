@@ -1,5 +1,5 @@
 @echo off
-rem Start musslop on Windows. First-time setup: setup.bat
+rem Start musloop on Windows. First-time setup: setup.bat
 rem Usage: run.bat [port]   (default 8801)
 setlocal
 cd /d "%~dp0"

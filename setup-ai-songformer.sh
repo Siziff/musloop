@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 
 VENV=".venv-songformer"
 SF_REPO="https://github.com/ASLP-lab/SongFormer"
-SF_REF="${MUSSLOP_SONGFORMER_REF:-139b2aa3b14bd1c6d961d0994e9fc975f1ef7fd5}"
+SF_REF="${MUSLOOP_SONGFORMER_REF:-139b2aa3b14bd1c6d961d0994e9fc975f1ef7fd5}"
 TORCH_VER="2.6.0"; TA_VER="2.6.0"; TV_VER="0.21.0"
 DEPS=(
   "transformers==4.51.1" "muq==0.1.0" "beat_this==1.1.0" "msaf==0.1.80"
@@ -22,7 +22,7 @@ DEPS=(
   "omegaconf==2.3.1" "einops==0.8.2" "loguru" "numpy" "librosa" "soundfile" "certifi"
 )
 
-echo "== musslop AI setup: SongFormer + Beat This! =="
+echo "== musloop AI setup: SongFormer + Beat This! =="
 
 # --- pick a Python torch 2.6 supports (3.10-3.13; 3.12 preferred) ------------
 pick_python() {

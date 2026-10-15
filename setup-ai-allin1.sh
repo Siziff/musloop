@@ -16,7 +16,7 @@ VENV=".venv-ai"
 MADMOM_REF="27f032e8947204902c675e5e341a3faf5dc86dae"
 ALLIN1_VER="1.1.0"
 
-echo "== musslop AI setup: All-In-One =="
+echo "== musloop AI setup: All-In-One =="
 
 pick_python() {
   local c

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command setup for musslop (core, no AI engines).
+# One-command setup for musloop (core, no AI engines).
 # Creates .venv/ and installs everything needed for ./run.sh.
 #
 # Usage: ./setup.sh
@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 
 PY="${PYTHON:-python3}"
 
-echo "== musslop setup =="
+echo "== musloop setup =="
 $PY -c 'import sys; assert sys.version_info >= (3, 10), "Python 3.10+ required"' \
   || { echo "ERROR: Python 3.10+ required"; exit 1; }
 if ! command -v ffmpeg >/dev/null; then
@@ -23,7 +23,7 @@ echo "[2/2] Installing dependencies ..."
 ./.venv/bin/python -m pip install --quiet --upgrade pip
 ./.venv/bin/python -m pip install --quiet -r requirements.txt
 # dev only: rebuild frontend/app.js after editing index.html (optional)
-[ "${MUSSLOP_DEV:-0}" = "1" ] && ./.venv/bin/python -m pip install --quiet -r requirements-dev.txt
+[ "${MUSLOOP_DEV:-0}" = "1" ] && ./.venv/bin/python -m pip install --quiet -r requirements-dev.txt
 
 ./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg; print('OK: core dependencies ready, librosa', librosa.__version__)"
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start musslop. Usage: ./run.sh [port]  (or PORT=8801 ./run.sh)
+# Start musloop. Usage: ./run.sh [port]  (or PORT=8801 ./run.sh)
 # First-time setup: ./setup.sh
 set -e
 cd "$(dirname "$0")"
@@ -44,21 +44,27 @@ else
   echo "URL import (yt-dlp): not installed (pip3 install yt-dlp)"
 fi
 
+# variables from before the rename (MUSSLOP_*) still work
+: "${MUSLOOP_DEEP_PY:=${MUSSLOP_DEEP_PY:-}}"
+: "${MUSLOOP_SONGFORMER_PY:=${MUSSLOP_SONGFORMER_PY:-}}"
+[ -n "$MUSLOOP_DEEP_PY" ] && export MUSLOOP_DEEP_PY
+[ -n "$MUSLOOP_SONGFORMER_PY" ] && export MUSLOOP_SONGFORMER_PY
+
 # AI engine #1: All-In-One (./setup-ai-allin1.sh -> .venv-ai)
-if [ -z "$MUSSLOP_DEEP_PY" ] && [ -x ".venv-ai/bin/python" ]; then
-  export MUSSLOP_DEEP_PY="$(pwd)/.venv-ai/bin/python"
+if [ -z "$MUSLOOP_DEEP_PY" ] && [ -x ".venv-ai/bin/python" ]; then
+  export MUSLOOP_DEEP_PY="$(pwd)/.venv-ai/bin/python"
 fi
-if [ -n "$MUSSLOP_DEEP_PY" ] && [ -x "$MUSSLOP_DEEP_PY" ]; then
+if [ -n "$MUSLOOP_DEEP_PY" ] && [ -x "$MUSLOOP_DEEP_PY" ]; then
   echo "AI engine All-In-One: available"
 else
   echo "AI engine All-In-One: not installed (./setup-ai-allin1.sh)"
 fi
 # AI engine #2: SongFormer + Beat This! (./setup-ai-songformer.sh -> .venv-songformer)
-if [ -z "$MUSSLOP_SONGFORMER_PY" ] && [ -x ".venv-songformer/bin/python" ]; then
-  export MUSSLOP_SONGFORMER_PY="$(pwd)/.venv-songformer/bin/python"
+if [ -z "$MUSLOOP_SONGFORMER_PY" ] && [ -x ".venv-songformer/bin/python" ]; then
+  export MUSLOOP_SONGFORMER_PY="$(pwd)/.venv-songformer/bin/python"
   export SONGFORMER_SRC="$(pwd)/.venv-songformer/src"
 fi
-if [ -n "$MUSSLOP_SONGFORMER_PY" ] && [ -x "$MUSSLOP_SONGFORMER_PY" ]; then
+if [ -n "$MUSLOOP_SONGFORMER_PY" ] && [ -x "$MUSLOOP_SONGFORMER_PY" ]; then
   echo "AI engine SongFormer: available"
 else
   echo "AI engine SongFormer: not installed (./setup-ai-songformer.sh)"

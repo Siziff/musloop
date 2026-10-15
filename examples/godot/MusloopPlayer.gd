@@ -1,13 +1,13 @@
-## MusslopPlayer.gd — adaptive music from a musslop loops export (Godot 4)
+## MusloopPlayer.gd — adaptive music from a musloop loops export (Godot 4)
 ##
-## Reads manifest.json written by musslop ("Files -> Loops (zip)"), loops one
+## Reads manifest.json written by musloop ("Files -> Loops (zip)"), loops one
 ## section at a time and switches sections on musical boundaries:
 ##   NATURAL — at the end of the current loop pass
 ##   SOON    — at the next transition point (phrase boundary) inside the loop
 ##   NOW     — immediately, with a short crossfade
 ## Two AudioStreamPlayers (A/B) are alternated so that the outgoing section can
 ## crossfade / ring out while the incoming one starts.
-class_name MusslopPlayer
+class_name MusloopPlayer
 extends Node
 
 enum Cue { NATURAL, SOON, NOW }
@@ -60,11 +60,11 @@ func _make_player() -> AudioStreamPlayer:
 func load_manifest(path: String) -> bool:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
-		push_error("musslop: cannot open %s" % path)
+		push_error("musloop: cannot open %s" % path)
 		return false
 	var data = JSON.parse_string(f.get_as_text())
 	if typeof(data) != TYPE_DICTIONARY or not data.has("loops"):
-		push_error("musslop: not a musslop-loops manifest: %s" % path)
+		push_error("musloop: not a musloop-loops manifest: %s" % path)
 		return false
 	manifest = data
 	loops = data["loops"]
@@ -82,7 +82,7 @@ func _load_wav(p: String) -> AudioStream:
 		return _streams[p]
 	var s: AudioStream = load(p)
 	if s == null:
-		push_warning("musslop: missing %s" % p)
+		push_warning("musloop: missing %s" % p)
 	elif s is AudioStreamWAV:
 		# we loop by re-triggering, so the imported loop mode must be off
 		(s as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_DISABLED
@@ -134,7 +134,7 @@ func cue(i: int, mode: Cue = Cue.NATURAL) -> void:
 			cue_queued.emit(i)
 
 
-## Use a scene saved in musslop (by name): its loop and its cue mode.
+## Use a scene saved in musloop (by name): its loop and its cue mode.
 func cue_scene(name: String) -> void:
 	for sc in scenes:
 		if sc.get("name", "") == name:
@@ -144,7 +144,7 @@ func cue_scene(name: String) -> void:
 				"now": m = Cue.NOW
 			cue(int(sc.get("loop_index", 0)), m)
 			return
-	push_warning("musslop: scene '%s' not found" % name)
+	push_warning("musloop: scene '%s' not found" % name)
 
 
 func cancel_cue() -> void:

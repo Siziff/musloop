@@ -63,8 +63,8 @@ const STR = {
     import_markup: '⤒ Разметка',
     export_loops: '⤓ Лупы (zip)',
     export_foundry: '⤓ Foundry VTT (zip)',
-    export_foundry_tip: 'Лупы + готовый плейлист Foundry (Import Data) + manifest для модуля musslop-foundry',
-    export_foundry_done: 'Распакуйте zip в Data/musslop/<трек>/ и импортируйте foundry-playlist.json (или используйте модуль musslop-foundry)',
+    export_foundry_tip: 'Лупы + готовый плейлист Foundry (Import Data) + manifest для модуля musloop-foundry',
+    export_foundry_done: 'Распакуйте zip в Data/musloop/<трек>/ и импортируйте foundry-playlist.json (или используйте модуль musloop-foundry)',
     exporting: 'Формирование zip с лупами…',
     export_downloading: 'Скачивание лупов:',
     err_export: 'Ошибка экспорта',
@@ -111,7 +111,7 @@ const STR = {
     theme_tavern: 'Тема: таверна (D&D)',
     beep_tip: 'Тест звука: короткий бип напрямую в аудиовыход',
     files_menu: '⤓⤒ Файлы',
-    drop_compact_hint: 'перетащите аудио или *.musslop.json — заменить / применить',
+    drop_compact_hint: 'перетащите аудио или *.musloop.json — заменить / применить',
     err_markup_no_track: 'Сначала загрузите аудиотрек — файл разметки лишь описывает части трека.',
     err_file_too_big: 'Файл слишком большой (макс. 300 МБ).',
     err_unknown_file: 'Неподдерживаемый тип файла:',
@@ -148,7 +148,7 @@ const STR = {
     url_btn: 'Импорт',
     url_downloading: 'Скачивание по ссылке…',
     loading_transcode: 'Браузер обрезал аудио — беру полный WAV с сервера…',
-    footer: 'musslop — структурный анализ: beat tracking + novelty-сегментация (Foote)',
+    footer: 'musloop — структурный анализ: beat tracking + novelty-сегментация (Foote)',
     // --- cues / audition ---
     chip_select_tip: 'Выбрать часть (Play зациклит её)',
     chip_cue_tip: 'Поставить переход в эту часть в очередь · клик по играющей части — отменить переход',
@@ -307,8 +307,8 @@ const STR = {
     import_markup: '⤒ Markup',
     export_loops: '⤓ Loops (zip)',
     export_foundry: '⤓ Foundry VTT (zip)',
-    export_foundry_tip: 'Loops + a ready Foundry playlist (Import Data) + manifest for the musslop-foundry module',
-    export_foundry_done: 'Unpack the zip into Data/musslop/<track>/ and import foundry-playlist.json (or use the musslop-foundry module)',
+    export_foundry_tip: 'Loops + a ready Foundry playlist (Import Data) + manifest for the musloop-foundry module',
+    export_foundry_done: 'Unpack the zip into Data/musloop/<track>/ and import foundry-playlist.json (or use the musloop-foundry module)',
     exporting: 'Building zip with loops…',
     export_downloading: 'Downloading loops:',
     err_export: 'Export failed',
@@ -355,7 +355,7 @@ const STR = {
     theme_tavern: 'Theme: tavern (D&D)',
     beep_tip: 'Sound test: a short beep straight to the audio output',
     files_menu: '⤓⤒ Files',
-    drop_compact_hint: 'drop audio or *.musslop.json here to replace / apply',
+    drop_compact_hint: 'drop audio or *.musloop.json here to replace / apply',
     err_markup_no_track: 'Load an audio track first — a markup file only describes sections of a track.',
     err_file_too_big: 'File is too large (max 300 MB).',
     err_unknown_file: 'Unsupported file type:',
@@ -392,7 +392,7 @@ const STR = {
     url_btn: 'Import',
     url_downloading: 'Downloading from URL…',
     loading_transcode: 'Browser truncated the audio — fetching full WAV from server…',
-    footer: 'musslop — structure analysis: beat tracking + novelty segmentation (Foote)',
+    footer: 'musloop — structure analysis: beat tracking + novelty segmentation (Foote)',
     // --- cues / audition ---
     chip_select_tip: 'Select this part (Play will loop it)',
     chip_cue_tip: 'Queue a transition into this part · click the playing part to cancel',
@@ -451,7 +451,7 @@ const STR = {
     drawer_library: 'Library',
     drawer_folders: 'Folders',
     drawer_library_empty: 'Nothing here yet — load a track or add a music folder in the “Folders” tab.',
-    folders_hint: 'Point musslop at a folder on this computer — every audio file inside (including subfolders) is listed with its cover. ▶ listens without importing, → takes the track to work, checkboxes build a project group.',
+    folders_hint: 'Point musloop at a folder on this computer — every audio file inside (including subfolders) is listed with its cover. ▶ listens without importing, → takes the track to work, checkboxes build a project group.',
     folders_ph: '/path/to/your/music',
     folders_add: 'Add',
     folders_err: 'Folder not found',
@@ -551,8 +551,8 @@ const STR = {
     import_markup: '⤒ 标注',
     export_loops: '⤓ 循环片段 (zip)',
     export_foundry: '⤓ Foundry VTT (zip)',
-    export_foundry_tip: '循环片段 + 可直接导入的 Foundry 播放列表 + 供 musslop-foundry 模块使用的 manifest',
-    export_foundry_done: '将 zip 解压到 Data/musslop/<曲目>/ 并导入 foundry-playlist.json（或使用 musslop-foundry 模块）',
+    export_foundry_tip: '循环片段 + 可直接导入的 Foundry 播放列表 + 供 musloop-foundry 模块使用的 manifest',
+    export_foundry_done: '将 zip 解压到 Data/musloop/<曲目>/ 并导入 foundry-playlist.json（或使用 musloop-foundry 模块）',
     exporting: '正在打包循环片段…',
     export_downloading: '正在下载循环片段:',
     err_export: '导出失败',
@@ -600,7 +600,7 @@ const STR = {
     theme_tavern: '主题：酒馆（D&D）',
     beep_tip: '声音测试：直接向音频输出发送短促提示音',
     files_menu: '⤓⤒ 文件',
-    drop_compact_hint: '拖入音频或 *.musslop.json — 替换 / 应用',
+    drop_compact_hint: '拖入音频或 *.musloop.json — 替换 / 应用',
     err_markup_no_track: '请先加载音轨 — 标注文件只是描述音轨的段落。',
     err_file_too_big: '文件过大（最大 300 MB）。',
     err_unknown_file: '不支持的文件类型:',
@@ -637,7 +637,7 @@ const STR = {
     url_btn: '导入',
     url_downloading: '正在从链接下载…',
     loading_transcode: '浏览器截断了音频 — 正在从服务器获取完整 WAV…',
-    footer: 'musslop — 结构分析：节拍跟踪 + 新颖度分段（Foote）',
+    footer: 'musloop — 结构分析：节拍跟踪 + 新颖度分段（Foote）',
     // --- cues / audition ---
     chip_select_tip: '选择此段（播放将循环它）',
     chip_cue_tip: '将切换到此段加入队列 · 点击正在播放的段可取消切换',
@@ -764,6 +764,13 @@ function themeColors() {
 
 // Bar grid for a meter: every bpb-th beat starting at `phase`. The phase
 // default comes from per-beat accents (server: analysis.beat_accents).
+// One-time migration of browser settings saved under the project's old name.
+try {
+  for (const k of ['lang', 'theme', 'volume', 'drawer_tab', 'project']) {
+    const oldV = localStorage.getItem('musslop_' + k);
+    if (oldV != null && localStorage.getItem('musloop_' + k) == null) localStorage.setItem('musloop_' + k, oldV);
+  }
+} catch (e) {}
 const METERS = [2, 3, 4, 5, 6, 7];
 function meterGrid(beats, bpb, phase) {
   const out = [];
@@ -2315,24 +2322,24 @@ function AiOverlay({
 // ================================ App ======================================
 function App() {
   const [lang, setLang] = useState(() => {
-    const saved = localStorage.getItem('musslop_lang');
+    const saved = localStorage.getItem('musloop_lang');
     return STR[saved] ? saved : 'en';
   });
   const t = STR[lang];
   const setLanguage = l => {
     setLang(l);
-    localStorage.setItem('musslop_lang', l);
+    localStorage.setItem('musloop_lang', l);
     document.documentElement.lang = l;
   };
 
   // --- UI theme --------------------------------------------------------------
   const [theme, setThemeState] = useState(() => {
-    const t0 = localStorage.getItem('musslop_theme');
+    const t0 = localStorage.getItem('musloop_theme');
     return t0 === 'tavern' || t0 === 'mono' ? t0 : 'mono';
   });
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('musslop_theme', theme);
+    localStorage.setItem('musloop_theme', theme);
   }, [theme]);
   const [trackId, setTrackId] = useState(null);
   const [trackName, setTrackName] = useState('');
@@ -2405,14 +2412,14 @@ function App() {
   const [tailOn, setTailOn] = useState(true);
   const [bassSwapOn, setBassSwapOn] = useState(true);
   const [volume, setVolumeState] = useState(() => {
-    const v = parseFloat(localStorage.getItem('musslop_volume'));
+    const v = parseFloat(localStorage.getItem('musloop_volume'));
     // don't restore a saved mute (0): after a page reload a
     // "silent" player looks like broken audio
     return isFinite(v) && v > 0.02 ? v : 1;
   });
   const setVolume = v => {
     setVolumeState(v);
-    localStorage.setItem('musslop_volume', String(v));
+    localStorage.setItem('musloop_volume', String(v));
     if (playerRef.current) playerRef.current.setVolume(v);
   };
   const [deepAvailable, setDeepAvailable] = useState(false);
@@ -2732,7 +2739,7 @@ function App() {
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (trackName || 'markup').replace(/\.[^.]+$/, '') + '.musslop.json';
+    a.download = (trackName || 'markup').replace(/\.[^.]+$/, '') + '.musloop.json';
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -3017,9 +3024,9 @@ function App() {
   const [project, setProject] = useState(null); // the open project (full)
   // --- side drawer ------------------------------------------------------------
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerTab, setDrawerTab] = useState(() => localStorage.getItem('musslop_drawer_tab') || 'library');
+  const [drawerTab, setDrawerTab] = useState(() => localStorage.getItem('musloop_drawer_tab') || 'library');
   useEffect(() => {
-    localStorage.setItem('musslop_drawer_tab', drawerTab);
+    localStorage.setItem('musloop_drawer_tab', drawerTab);
   }, [drawerTab]);
   // --- music folders -----------------------------------------------------------
   const [folders, setFolders] = useState([]);
@@ -3247,7 +3254,7 @@ function App() {
         });
         proj = await r.json();
         setProject(proj);
-        localStorage.setItem('musslop_project', proj.id);
+        localStorage.setItem('musloop_project', proj.id);
         loadProjects();
         targetGid = proj.groups[0].id;
       }
@@ -3326,12 +3333,12 @@ function App() {
       if (!r.ok) return;
       const p = await r.json();
       setProject(p);
-      localStorage.setItem('musslop_project', p.id);
+      localStorage.setItem('musloop_project', p.id);
     } catch (e) {}
   };
   // reopen the last project
   useEffect(() => {
-    const id = localStorage.getItem('musslop_project');
+    const id = localStorage.getItem('musloop_project');
     if (id) openProject(id);
   }, []);
   const createProject = async () => {
@@ -3351,7 +3358,7 @@ function App() {
     if (!r.ok) return;
     const p = await r.json();
     setProject(p);
-    localStorage.setItem('musslop_project', p.id);
+    localStorage.setItem('musloop_project', p.id);
     loadProjects();
   };
   // any local edit -> debounced PUT
@@ -3384,7 +3391,7 @@ function App() {
     });
     if (project && project.id === id) {
       setProject(null);
-      localStorage.removeItem('musslop_project');
+      localStorage.removeItem('musloop_project');
     }
     loadProjects();
   };
@@ -4070,7 +4077,7 @@ function App() {
     "aria-expanded": drawerOpen
   }, /*#__PURE__*/React.createElement("span", {
     className: "burger"
-  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null))), /*#__PURE__*/React.createElement("h1", null, theme === 'tavern' ? 'Musslop' : 'musslop'), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null))), /*#__PURE__*/React.createElement("h1", null, theme === 'tavern' ? 'Musloop' : 'musloop'), /*#__PURE__*/React.createElement("div", {
     className: "sub"
   }, t.tagline)), /*#__PURE__*/React.createElement("div", {
     className: "row",
@@ -4118,7 +4125,7 @@ function App() {
       fontSize: 12,
       opacity: .7
     }
-  }, t.drop_formats, " \xB7 *.musslop.json"))) : /*#__PURE__*/React.createElement("div", {
+  }, t.drop_formats, " \xB7 *.musloop.json"))) : /*#__PURE__*/React.createElement("div", {
     className: 'dz-compact' + (dragOver ? ' over' : ''),
     onClick: () => fileRef.current.click(),
     onDragOver: e => {
@@ -4976,7 +4983,7 @@ function App() {
   }, projects.length > 0 && /*#__PURE__*/React.createElement("select", {
     className: "proj-select",
     value: project ? project.id : '',
-    onChange: e => e.target.value ? openProject(e.target.value) : (setProject(null), localStorage.removeItem('musslop_project'))
+    onChange: e => e.target.value ? openProject(e.target.value) : (setProject(null), localStorage.removeItem('musloop_project'))
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
   }, t.project_none), projects.map(p => /*#__PURE__*/React.createElement("option", {
@@ -5292,7 +5299,7 @@ function App() {
       title: t.folders_take_tip
     }, "\u2192"));
   }))))))), /*#__PURE__*/React.createElement("footer", null, t.footer, " \xB7 ", /*#__PURE__*/React.createElement("a", {
-    href: "https://github.com/Siziff/musslop",
+    href: "https://github.com/Siziff/musloop",
     target: "_blank"
   }, "GitHub")), liveMode && analysis && (() => {
     const cur = segments[player.segIndex];

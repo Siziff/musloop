@@ -1,4 +1,4 @@
-# Musslop - FastAPI server: track upload, analysis, audio serving and UI.
+# Musloop - FastAPI server: track upload, analysis, audio serving and UI.
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import subprocess
 import sys
 import uuid
 
-log = logging.getLogger("musslop")
+log = logging.getLogger("musloop")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s",
                     datefmt="%H:%M:%S")
 
@@ -21,8 +21,8 @@ from fastapi.staticfiles import StaticFiles
 from .analysis import analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# MUSSLOP_DATA: where tracks / markups / projects live (Docker: a volume)
-UPLOAD_DIR = os.path.abspath(os.environ.get("MUSSLOP_DATA") or os.path.join(BASE_DIR, "uploads"))
+# MUSLOOP_DATA: where tracks / markups / projects live (Docker: a volume)
+UPLOAD_DIR = os.path.abspath(os.environ.get("MUSLOOP_DATA") or os.environ.get("MUSSLOP_DATA") or os.path.join(BASE_DIR, "uploads"))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -66,6 +66,7 @@ def _venv_python(venv_dir: str) -> list[str]:
 # local .venv-ai (created by ./setup-ai-allin1.sh).
 def _find_deep_py() -> str | None:
     cands = [
+        os.environ.get("MUSLOOP_DEEP_PY"),
         os.environ.get("MUSSLOP_DEEP_PY"),
         *_venv_python(os.path.join(BASE_DIR, ".venv-ai")),
     ]
@@ -80,6 +81,7 @@ def _find_deep_py() -> str | None:
 # code is not packaged in pip).
 def _find_songformer() -> tuple[str | None, str | None]:
     py_cands = [
+        os.environ.get("MUSLOOP_SONGFORMER_PY"),
         os.environ.get("MUSSLOP_SONGFORMER_PY"),
         *_venv_python(os.path.join(BASE_DIR, ".venv-songformer")),
     ]
@@ -99,7 +101,7 @@ DEEP_AVAILABLE = DEEP_PY is not None
 SONGFORMER_PY, SONGFORMER_SRC = _find_songformer()
 SONGFORMER_AVAILABLE = SONGFORMER_PY is not None
 
-app = FastAPI(title="Musslop")
+app = FastAPI(title="Musloop")
 
 
 
@@ -282,7 +284,7 @@ def delete_track(track_id: str):
 
 
 # ----------------------------- Music folders --------------------------------
-# The user points musslop at folders on disk; we list the audio files inside
+# The user points musloop at folders on disk; we list the audio files inside
 # and import them on demand (copy into uploads/ + analysis WAV), remembering
 # the source path so a file is imported only once.
 FOLDERS_PATH = os.path.join(UPLOAD_DIR, "folders.json")
@@ -397,7 +399,7 @@ def _folder_diagnosis(tried: list[str]) -> str:
                 mac = platform.system() == "Darwin"
                 return (f"{c} exists but the server is not allowed to read it"
                         + (" — macOS: System Settings → Privacy & Security → Files and Folders → allow "
-                           "your Terminal/Python to access this folder, then restart musslop" if mac else ""))
+                           "your Terminal/Python to access this folder, then restart musloop" if mac else ""))
         parent = os.path.dirname(c.rstrip(os.sep)) or c
         if os.path.isdir(parent):
             try:
@@ -406,7 +408,7 @@ def _folder_diagnosis(tried: list[str]) -> str:
                 return f"{parent} is not readable by the server (permissions)"
     host = platform.node()
     return (f"Tried: {'; '.join(tried[:4])}. Note: the path must exist on the computer where the "
-            f"musslop server runs (this one is '{host}', {platform.system()}), not just in your browser.")
+            f"musloop server runs (this one is '{host}', {platform.system()}), not just in your browser.")
 
 
 @app.post("/api/folders")
@@ -453,7 +455,7 @@ def pick_folder():
             root = tk.Tk()
             root.withdraw()
             root.attributes("-topmost", True)
-            result["path"] = filedialog.askdirectory(title="musslop — choose a music folder") or None
+            result["path"] = filedialog.askdirectory(title="musloop — choose a music folder") or None
             root.destroy()
         except Exception as e:  # headless, no display, ...
             result["error"] = str(e)
@@ -463,7 +465,7 @@ def pick_folder():
     import platform
     if platform.system() == "Darwin":
         code = ("import tkinter as tk,sys\nfrom tkinter import filedialog\nr=tk.Tk();r.withdraw();"
-                "r.attributes('-topmost',True);print(filedialog.askdirectory(title='musslop — choose a music folder') or '')")
+                "r.attributes('-topmost',True);print(filedialog.askdirectory(title='musloop — choose a music folder') or '')")
         try:
             out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=300)
             result["path"] = out.stdout.strip() or None
@@ -1083,7 +1085,7 @@ def import_url(body: dict = Body(...)):
         low = tail.lower()
         if "ssl" in low or "unable to download" in low or "timed out" in low:
             hint = ("The server appears to have no access to YouTube (network/firewall). "
-                    "Run musslop locally on a machine with internet access. ")
+                    "Run musloop locally on a machine with internet access. ")
         elif "sign in" in low or "age" in low:
             hint = "The video requires sign-in / age confirmation. "
         elif "yt-dlp -u" in low or "extract" in low:
@@ -1123,9 +1125,9 @@ def _content_disposition(filename: str) -> str:
     HTTP headers are latin-1, so send an ASCII fallback plus the RFC 5987
     filename* with the real UTF-8 name (all browsers use filename*)."""
     from urllib.parse import quote
-    ascii_name = filename.encode("ascii", "ignore").decode().replace('"', "").strip() or "musslop.zip"
+    ascii_name = filename.encode("ascii", "ignore").decode().replace('"', "").strip() or "musloop.zip"
     if ascii_name.startswith(".") or ascii_name.startswith("_"):
-        ascii_name = "musslop" + ascii_name
+        ascii_name = "musloop" + ascii_name
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
@@ -1243,7 +1245,7 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
             manifest_loops.append(entry)
 
         manifest = {
-            "format": "musslop-loops",
+            "format": "musloop-loops",
             "version": 1,
             "track": track.get("name"),
             "bpm": tempo,
@@ -1285,9 +1287,9 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
             # Playlists sidebar -> Import Data). Every loop = one PlaylistSound
             # with repeat on; scenes become extra playlists that point at the
             # same files. Paths assume the zip is unpacked into
-            # <Foundry Data>/musslop/<slug>/ (what the musslop-foundry module
+            # <Foundry Data>/musloop/<slug>/ (what the musloop-foundry module
             # does on "Import ZIP").
-            root = f"musslop/{slug}"
+            root = f"musloop/{slug}"
             fade_ms = int(max(0.0, crossfade) * 1000)
             def sound(i: int, L: dict, name: str | None = None) -> dict:
                 return {
@@ -1300,12 +1302,12 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
                     "volume": 0.8,
                     "fade": fade_ms,
                     "sort": i * 100000,
-                    "flags": {"musslop": {"loop_index": L["index"], "stinger": L.get("stinger"),
+                    "flags": {"musloop": {"loop_index": L["index"], "stinger": L.get("stinger"),
                                           "tail_file": (f"{root}/{L['tail_file']}" if L.get("tail_file") else None)}},
                 }
             playlists = [{
                 "name": base,
-                "description": "Exported from musslop — each sound is a seamless loop. "
+                "description": "Exported from musloop — each sound is a seamless loop. "
                                "Loops marked repeat=false are build-ups (play once).",
                 "mode": -1,            # DISABLED: GM picks a sound, it loops on its own
                 "channel": "music",
@@ -1313,33 +1315,33 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
                 "fade": fade_ms,
                 "sorting": "m",
                 "sounds": [sound(i, L) for i, L in enumerate(manifest_loops)],
-                "flags": {"musslop": {"manifest": f"{root}/manifest.json", "slug": slug, "bpm": tempo}},
+                "flags": {"musloop": {"manifest": f"{root}/manifest.json", "slug": slug, "bpm": tempo}},
             }]
             if manifest["scenes"]:
                 by_index = {L["index"]: L for L in manifest_loops}
                 playlists.append({
                     "name": f"{base} — scenes",
-                    "description": "musslop scenes: one entry per scene, pointing at that scene's loop.",
+                    "description": "musloop scenes: one entry per scene, pointing at that scene's loop.",
                     "mode": -1, "channel": "music", "playing": False, "fade": fade_ms, "sorting": "m",
                     "sounds": [sound(i, by_index[sc["loop_index"]], sc["name"])
                                for i, sc in enumerate(manifest["scenes"]) if sc.get("loop_index") in by_index],
-                    "flags": {"musslop": {"manifest": f"{root}/manifest.json", "slug": slug}},
+                    "flags": {"musloop": {"manifest": f"{root}/manifest.json", "slug": slug}},
                 })
             # Foundry's "Import Data" takes ONE document per file
             zf.writestr("foundry-playlist.json", json.dumps(playlists[0], indent=2, ensure_ascii=False))
             if len(playlists) > 1:
                 zf.writestr("foundry-playlist-scenes.json", json.dumps(playlists[1], indent=2, ensure_ascii=False))
             zf.writestr("README-foundry.txt", (
-                "musslop -> Foundry VTT\n"
+                "musloop -> Foundry VTT\n"
                 "======================\n"
-                f"1. Unpack this zip into <your Foundry user data>/Data/musslop/{slug}/\n"
+                f"1. Unpack this zip into <your Foundry user data>/Data/musloop/{slug}/\n"
                 "   (so that the .wav files sit next to this README).\n"
-                "   Tip: with the musslop-foundry module installed, use its 'Import ZIP' button instead.\n"
+                "   Tip: with the musloop-foundry module installed, use its 'Import ZIP' button instead.\n"
                 "2. Without the module: in Foundry, Playlists sidebar -> right-click -> Import Data ->\n"
                 "   choose foundry-playlist.json (and foundry-playlist-scenes.json if present).\n"
                 "   Each sound is a seamless loop; click one to play it, click another to switch\n"
                 "   (Foundry crossfades by the playlist 'fade' setting).\n"
-                "3. With the module: open the musslop desk (music-note button in the scene controls),\n"
+                "3. With the module: open the musloop desk (music-note button in the scene controls),\n"
                 "   pick this track -> transitions land on loop/phrase boundaries, scenes get hotkeys,\n"
                 "   and every connected player hears the same thing.\n"
             ))
