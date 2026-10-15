@@ -1,0 +1,29 @@
+# musloop with the neural engines (SongFormer structure analysis + Demucs layers).
+#
+#   CPU, any PC / Mac (~4.5 GB):
+#     docker compose -f docker-compose.ai.yml up -d
+#   NVIDIA GPU, Linux / Windows + NVIDIA Container Toolkit (~8 GB):
+#     docker compose -f docker-compose.ai.yml -f docker-compose.cuda.yml up -d
+#   -> http://localhost:8801
+#
+# Uses the same "musloop-data" volume as docker-compose.yml, so your tracks
+# carry over. Run only one variant at a time (they share port 8801):
+#   docker compose down   before switching.
+services:
+  musloop:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    image: musloop:ai
+    container_name: musloop
+    ports:
+      # bound to this computer only; change to "8801:8801" to open it to your LAN
+      - "127.0.0.1:8801:8801"
+    volumes:
+      - musloop-data:/data
+      # Optional: a music folder on your disk for ☰ → Folders (add it as /music).
+      # - /path/to/your/music:/music:ro
+    restart: unless-stopped
+
+volumes:
+  musloop-data:

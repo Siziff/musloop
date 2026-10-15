@@ -1,0 +1,128 @@
+# syntax=docker/dockerfile:1.7
+# musloop — full image with the neural engines (SongFormer + Beat This! +
+# Demucs layers). The model weights are baked in: works offline from the
+# first start.
+#
+#   CPU (any PC / Mac):     docker build -f Dockerfile.ai -t musloop:ai .
+#   NVIDIA GPU (Linux/Win): docker build -f Dockerfile.ai --build-arg TORCH_FLAVOR=cu126 -t musloop:ai-cuda .
+#                           docker run --gpus all ...
+#
+# Or: docker compose --profile ai up -d        (see docker-compose.yml)
+#
+# Size: CPU ~4.5 GB, CUDA ~8 GB (PyTorch + ~2.9 GB of model weights).
+# Speed on CPU (4-minute track): structure analysis ~1.5-2.5 min on 4-8 cores,
+# layer split ~40-70 s. With an NVIDIA GPU: seconds.
+#
+# Versions = the combination verified with setup-ai-songformer.sh.
+# All-In-One is not included: its NATTEN dependency has no CPU/macOS builds,
+# and SongFormer covers structure analysis (Demucs gives the layers).
+
+ARG PYTHON_VERSION=3.12
+
+# ---------- 1. Python deps of the app (same as the light image) ----------
+FROM python:${PYTHON_VERSION}-slim AS app-deps
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN python -m venv /venv
+COPY requirements.txt /tmp/requirements.txt
+RUN /venv/bin/pip install --upgrade pip \
+ && /venv/bin/pip install -r /tmp/requirements.txt \
+ && ln -s "$(/venv/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /venv/bin/ffmpeg \
+ && /venv/bin/pip uninstall -y pip \
+ && find /venv -type d \( -name tests -o -name __pycache__ \) -prune -exec rm -rf {} +
+
+# ---------- 2. AI venv: PyTorch + SongFormer / Beat This! / Demucs ----------
+FROM python:${PYTHON_VERSION}-slim AS ai-deps
+ARG TORCH_FLAVOR=cpu
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN python -m venv /venv-ai && /venv-ai/bin/pip install --upgrade pip
+# torch: CPU wheels (x86_64 + arm64) or CUDA 12.6 wheels (x86_64)
+RUN /venv-ai/bin/pip install torch==2.6.0 torchaudio==2.6.0 torchvision==0.21.0 \
+      --index-url https://download.pytorch.org/whl/${TORCH_FLAVOR}
+# pinned with torch==2.6.0 in the same command so pip never swaps torch
+RUN /venv-ai/bin/pip install \
+      "transformers==4.51.1" "muq==0.1.0" "beat_this==1.1.0" "msaf==0.1.80" \
+      "x_transformers==2.28.4" "ema_pytorch==0.8.3" "demucs==4.1.0" "mir_eval==0.8.2" \
+      "omegaconf==2.3.1" "einops==0.8.2" loguru numpy librosa soundfile certifi \
+      "torch==2.6.0" --extra-index-url https://download.pytorch.org/whl/${TORCH_FLAVOR} \
+ && /venv-ai/bin/pip uninstall -y pip \
+ && find /venv-ai -type d -name __pycache__ -prune -exec rm -rf {} +
+
+# ---------- 3. Model weights (own stage: cached across app updates) ----------
+FROM python:${PYTHON_VERSION}-slim AS models
+ARG SONGFORMER_REF=139b2aa3b14bd1c6d961d0994e9fc975f1ef7fd5
+ARG MUQ_REV=0562a57814f6f8bbd9fdea0a25921a2fce1a841a
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir "huggingface_hub==0.36.2"
+# SongFormer sources (infer code is not packaged) + its two submodules
+RUN git init -q /models/songformer \
+ && cd /models/songformer \
+ && git remote add origin https://github.com/ASLP-lab/SongFormer \
+ && git fetch -q --depth 1 origin ${SONGFORMER_REF} && git checkout -q FETCH_HEAD \
+ && git submodule update -q --init --recursive --depth 1 \
+ && rm -rf .git src/third_party/*/.git
+ENV HF_HUB_CACHE=/models/hf TORCH_HOME=/models/torch
+# SongFormer + MusicFM checkpoints, MuQ (safetensors only), the wav2vec2-conformer
+# config MusicFM builds its encoder from, Beat This! and Demucs htdemucs.
+RUN python - <<'EOF'
+import os, shutil
+from huggingface_hub import hf_hub_download, snapshot_download
+ck = "/models/songformer/src/SongFormer/ckpts"
+os.makedirs(f"{ck}/MusicFM", exist_ok=True)
+for repo, fn, dst in [("ASLP-lab/SongFormer", "SongFormer.safetensors", f"{ck}/SongFormer.safetensors"),
+                      ("minzwon/MusicFM", "pretrained_msd.pt", f"{ck}/MusicFM/pretrained_msd.pt"),
+                      ("minzwon/MusicFM", "msd_stats.json", f"{ck}/MusicFM/msd_stats.json")]:
+    shutil.copy(hf_hub_download(repo, fn, cache_dir="/tmp/hf-dl"), dst)
+shutil.rmtree("/tmp/hf-dl")
+snapshot_download("OpenMuQ/MuQ-large-msd-iter", revision=os.environ["MUQ_REV"],
+                  allow_patterns=["config.json", "model.safetensors"])
+hf_hub_download("facebook/wav2vec2-conformer-rope-large-960h-ft", "config.json")
+EOF
+RUN mkdir -p /models/torch/hub/checkpoints \
+ && python -c "import urllib.request as u; \
+u.urlretrieve('https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt', '/models/torch/hub/checkpoints/beat_this-final0.ckpt'); \
+u.urlretrieve('https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21a.th', '/models/torch/hub/checkpoints/955717e8-8726e21a.th')" \
+ && rm -rf /models/hf/.locks /models/hf/xet \
+ && cd /models/songformer/src/SongFormer/ckpts \
+ && sed -E 's/ +/  /' md5sum.txt | grep -v 'SongFormer.pt$' | md5sum -c \
+ && du -sh /models/*
+
+# ---------- runtime ----------
+FROM python:${PYTHON_VERSION}-slim
+RUN useradd --create-home --uid 1000 musloop \
+ && mkdir -p /data && chown musloop:musloop /data
+COPY --from=models /models /models
+COPY --from=ai-deps /venv-ai /venv-ai
+COPY --from=app-deps /venv /venv
+RUN ln -s /venv/bin/ffmpeg /venv-ai/bin/ffmpeg
+WORKDIR /app
+COPY --chown=musloop:musloop backend ./backend
+COPY --chown=musloop:musloop frontend ./frontend
+COPY --chown=musloop:musloop tools/songformer_analyze.py tools/demix.py ./tools/
+COPY --chown=musloop:musloop LICENSE README.md ./
+
+ENV PATH="/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MUSLOOP_DATA=/data \
+    MUSLOOP_SONGFORMER_PY=/venv-ai/bin/python \
+    SONGFORMER_SRC=/models/songformer \
+    TORCH_HOME=/models/torch \
+    HF_HUB_CACHE=/models/hf \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    NUMBA_CACHE_DIR=/tmp/numba \
+    MPLCONFIGDIR=/tmp/matplotlib \
+    PORT=8801
+
+# SongFormer writes a device-patched copy of infer.py next to the original
+RUN chown -R musloop:musloop /models/songformer/src/SongFormer/infer \
+ && touch frontend/index.prod.html frontend/app.js
+
+USER musloop
+VOLUME ["/data"]
+EXPOSE 8801
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD python -c "import os,urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/api/health', timeout=4)" || exit 1
+
+CMD ["sh", "-c", "exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
