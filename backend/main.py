@@ -1113,6 +1113,17 @@ def import_url(body: dict = Body(...)):
     return {"track_id": track_id, "name": meta["name"]}
 
 
+def _content_disposition(filename: str) -> str:
+    """attachment header that survives non-ASCII names (Cyrillic, CJK...):
+    HTTP headers are latin-1, so send an ASCII fallback plus the RFC 5987
+    filename* with the real UTF-8 name (all browsers use filename*)."""
+    from urllib.parse import quote
+    ascii_name = filename.encode("ascii", "ignore").decode().replace('"', "").strip() or "musslop.zip"
+    if ascii_name.startswith(".") or ascii_name.startswith("_"):
+        ascii_name = "musslop" + ascii_name
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
+
+
 @app.post("/api/export/{track_id}")
 def export_loops(track_id: str, body: dict | list = Body(...)):
     """Cut the track into loops at the boundaries and return a zip.
@@ -1334,7 +1345,7 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
     from fastapi.responses import Response
     return Response(
         buf.read(), media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{base}{suffix}.zip"'},
+        headers={"Content-Disposition": _content_disposition(f"{base}{suffix}.zip")},
     )
 
 
