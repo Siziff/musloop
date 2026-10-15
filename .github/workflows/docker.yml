@@ -14,35 +14,38 @@ jobs:
       - name: Build image
         run: docker build -t musslop:ci .
       - name: Image size
-        run: docker image ls musslop:ci --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          docker image ls musslop:ci --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=layers::$(docker history musslop:ci --format '{{.Size}} {{.CreatedBy}}' --no-trunc | cut -c1-110 | tr '\n' '|')"
+          echo "::notice title=apt ffmpeg deps::$(docker run --rm --entrypoint sh musslop:ci -c 'du -sh /usr/lib/x86_64-linux-gnu 2>/dev/null; du -sh /venv; du -sh /usr/local/lib/python3*; du -sh /usr/share 2>/dev/null' | tr '\n' ' ')"
       - name: Start container
         run: |
           echo "::notice title=images::$(docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | tr '\n' ' ')"
-          if ! out=$(docker run -d --name m -p 8801:8801 -v musslop-ci:/data musslop:ci 2>&1); then
+          if ! out=$(docker run -d --name musslop-ci -p 8801:8801 -v musslop-ci:/data musslop:ci 2>&1); then
             echo "::error title=docker run::$(echo "$out" | tr '\n' ' ')"; exit 1
           fi
           for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
           if ! curl -fs localhost:8801/api/health; then
-            echo "::error title=container log::$(docker logs m 2>&1 | tail -25 | tr '\n' '|')"; exit 1
+            echo "::error title=container log::$(docker logs musslop-ci 2>&1 | tail -25 | tr '\n' '|')"; exit 1
           fi
       - name: Test track (two 32 s sections at 120 BPM, generated with the image's ffmpeg)
         run: |
-          docker exec m ffmpeg -loglevel error \
+          docker exec musslop-ci ffmpeg -loglevel error \
             -f lavfi -i "sine=frequency=110:duration=32" \
             -f lavfi -i "sine=frequency=880:duration=32,volume='if(lt(mod(t,0.5),0.05),1,0.05)':eval=frame" \
             -f lavfi -i "sine=frequency=165:duration=32" \
             -f lavfi -i "anoisesrc=d=32:c=pink:a=0.3,volume='if(lt(mod(t,0.5),0.06),1,0.1)':eval=frame" \
             -filter_complex "[0][1]amix=inputs=2[a];[2][3]amix=inputs=2[b];[a][b]concat=n=2:v=0:a=1,volume=2" \
             -ac 2 -ar 44100 /tmp/test.mp3
-          docker cp m:/tmp/test.mp3 "./Тестовый трек.mp3"
+          docker cp musslop-ci:/tmp/test.mp3 "./Тестовый трек.mp3"
       - name: API smoke test (upload, analyze + meter, markup, export, Foundry export)
         run: python3 tests/smoke_api.py 8801 "./Тестовый трек.mp3"
       - name: Data survives a restart (volume)
         run: |
-          docker rm -f m
-          docker run -d --name m2 -p 8801:8801 -v musslop-ci:/data musslop:ci
+          docker rm -f musslop-ci
+          docker run -d --name musslop-ci2 -p 8801:8801 -v musslop-ci:/data musslop:ci
           for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
           curl -fs localhost:8801/api/tracks | python3 -c "import sys,json; t=json.load(sys.stdin)['tracks']; print(len(t),'track(s)'); assert t"
       - name: Logs
         if: always()
-        run: docker logs m 2>/dev/null || docker logs m2
+        run: docker logs musslop-ci 2>/dev/null || docker logs musslop-ci2
