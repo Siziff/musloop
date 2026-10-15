@@ -152,13 +152,39 @@ docker compose up -d        # → http://localhost:8801
   `git pull && docker compose up -d --build`.
 - To use ☰ → **Folders**, uncomment the music folder line in `docker-compose.yml`
   and add `/music` inside musloop. The *Pick folder…* dialog does not work in Docker; type the path.
-- The AI engines (SongFormer, All-In-One) are not included: they need several GB of PyTorch.
-  Use the native setup for them.
+- The neural engines are in a separate, bigger image — see **Docker with the AI engines** below.
 - By default the app is only reachable from this computer. To open it to your LAN (e.g. a tablet
   at the table), change the port line to `"8801:8801"`.
 
 Without Compose: `docker build -t musloop .` then
 `docker run -d -p 8801:8801 -v musloop-data:/data musloop`.
+
+#### Docker with the AI engines
+
+The full image adds neural structure analysis (SongFormer + Beat This!) and the stem "layers"
+(Demucs). All model weights are inside the image, so it works offline once built.
+
+```bash
+docker compose -f docker-compose.ai.yml up -d --build                               # CPU, any PC / Mac
+docker compose -f docker-compose.ai.yml -f docker-compose.cuda.yml up -d --build    # NVIDIA GPU
+```
+
+| | CPU image | NVIDIA GPU image |
+|---|---|---|
+| Disk | ~5 GB image, ~10 GB free space while building | ~8 GB image |
+| Memory (RAM) | **16 GB recommended**: the analysis takes ~5 GB for a 1-minute track, ~10 GB for a 3–4 minute track, up to ~25 GB for tracks of 7 minutes or longer. Layers: ~2–3 GB | 8 GB RAM; the analysis runs in video memory |
+| Speed (4-minute track) | analysis ~1.5–2.5 min on 4–8 cores, layers ~40–70 s | seconds |
+| Works on | Windows, Linux, macOS (Intel and Apple M-series) | Linux or Windows with an NVIDIA card and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) |
+
+**Docker Desktop (Windows / macOS) gives containers only half of your RAM by default** — on a 16 GB
+computer that is 8 GB, not enough for a full-length track. Raise it in *Settings → Resources →
+Advanced → Memory limit*; on Windows with the WSL 2 engine set `memory=12GB` (or more) under
+`[wsl2]` in `%UserProfile%\.wslconfig` and run `wsl --shutdown`. Then restart the container. If there is not enough memory, musloop says so instead of failing
+silently, and the fast analysis keeps working. All-In-One is not included in Docker (its NATTEN
+dependency has no CPU / macOS builds); SongFormer covers structure analysis.
+
+All variants use the same `musloop-data` volume, so your tracks carry over between them
+(stop one with `docker compose ... down` before starting another; they share port 8801).
 
 ## Your first loop
 

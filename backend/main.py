@@ -817,6 +817,46 @@ def analyze_track(track_id: str,
     return result
 
 
+def _total_ram_gb() -> float | None:
+    """RAM available to this process (container limit if any), in GB."""
+    try:
+        for p in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+            if os.path.exists(p):
+                v = open(p).read().strip()
+                if v.isdigit() and int(v) < 1 << 60:
+                    return int(v) / 1024**3
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024**3
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+# Rough peak memory of the neural engines on CPU (measured): SongFormer
+# ~5 GB for a 1-minute track, ~10 GB for 3-4 minutes, ~25 GB for 7+ minutes;
+# Demucs layers ~2 GB. On a GPU most of it sits in video memory.
+_OOM_MARKERS = ("cannot allocate memory", "out of memory", "memoryerror",
+                "defaultcpuallocator", "std::bad_alloc", "killed")
+
+
+def _is_oom(returncode: int | None, stderr: str) -> bool:
+    """Process ran out of memory: the kernel / Docker killed it (SIGKILL,
+    exit -9 / 137 with no message) or torch reported a failed allocation."""
+    if returncode in (-9, 137):
+        return True
+    low = (stderr or "").lower()
+    return any(m in low for m in _OOM_MARKERS)
+
+
+def _oom_message(what: str) -> str:
+    """Starts with "[oom:<GB>]" so the UI can show a localized message."""
+    ram = _total_ram_gb()
+    have = f" This computer / container has about {ram:.0f} GB." if ram else ""
+    return (f"[oom:{ram:.0f}] " if ram else "[oom:] ") + (f"Not enough memory for {what}.{have} On CPU the structure analysis needs "
+            "about 10 GB for a typical 3-4 minute track and up to ~25 GB for tracks "
+            "of 7 minutes or longer. Docker Desktop: Settings → Resources → Advanced → Memory limit "
+            "(raise the limit and restart the container). Or use the fast analysis, "
+            "or a machine with an NVIDIA GPU.")
+
+
 def _run_engine(track: dict, cache_key: str, script: str, py: str,
                 extra_env: dict | None = None) -> dict:
     """Shared AI-runner launch via subprocess with caching in the track meta."""
@@ -840,6 +880,10 @@ def _run_engine(track: dict, cache_key: str, script: str, py: str,
                 capture_output=True, text=True, timeout=1800, env=env,
             )
             if proc.returncode != 0:
+                if _is_oom(proc.returncode, proc.stderr):
+                    log.warning("engine %s: out of memory on %s (exit %s)",
+                                script, track["id"], proc.returncode)
+                    raise HTTPException(507, _oom_message("the neural structure analysis"))
                 tail = (proc.stderr or "")[-800:]
                 raise HTTPException(500, f"AI analysis failed: {tail}")
             with open(out_json) as f:
@@ -948,6 +992,7 @@ def _run_demix(track_id: str, orig: str, stem_dir: str) -> None:
         )
         # demucs updates its progress bar via \r - read char by char
         buf = ""
+        tail: list[str] = []   # last stderr lines (errors) for the log / message
         while True:
             ch = proc.stderr.read(1)
             if ch == "" and proc.poll() is not None:
@@ -960,13 +1005,24 @@ def _run_demix(track_id: str, orig: str, stem_dir: str) -> None:
                         log.info("stems %s: %d%%", track_id, p)
                         job["_logged"] = p
                     job["progress"] = p
+                elif buf.strip():
+                    tail = (tail + [buf.strip()])[-15:]
                 buf = ""
             else:
                 buf += ch
         proc.wait(timeout=3600)
         if proc.returncode != 0 or not _stems_done(stem_dir):
+            err = "\n".join(tail)
+            log.warning("stems %s: failed (exit %s): %s", track_id, proc.returncode,
+                        " | ".join(tail[-4:])[-600:])
             job["status"] = "error"
-            job["error"] = "Separation failed (see server.log)"
+            if _is_oom(proc.returncode, err):
+                job["error"] = _oom_message("splitting the track into layers").replace("[oom:", "[oom-stems:", 1).replace(
+                    "the structure analysis needs about 10 GB for a typical 3-4 minute track "
+                    "and up to ~25 GB for tracks of 7 minutes or longer",
+                    "the layer split needs about 2-3 GB")
+            else:
+                job["error"] = "Separation failed: " + (tail[-1][:200] if tail else "see server.log")
             return
         track = TRACKS.get(track_id)
         if track is not None:
