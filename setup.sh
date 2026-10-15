@@ -20,10 +20,12 @@ if [ ! -x ".venv/bin/python" ]; then
   $PY -m venv .venv
 fi
 echo "[2/2] Installing dependencies ..."
-./.venv/bin/pip install --quiet --upgrade pip
-./.venv/bin/pip install --quiet -r requirements.txt
+./.venv/bin/python -m pip install --quiet --upgrade pip
+./.venv/bin/python -m pip install --quiet -r requirements.txt
+# dev only: rebuild frontend/app.js after editing index.html (optional)
+[ "${MUSSLOP_DEV:-0}" = "1" ] && ./.venv/bin/python -m pip install --quiet -r requirements-dev.txt
 
-./.venv/bin/python -c "import fastapi, uvicorn, librosa, yt_dlp, imageio_ffmpeg; print('OK: core dependencies ready')"
+./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg; print('OK: core dependencies ready, librosa', librosa.__version__)"
 
 echo
 echo "Done! Start the app:   ./run.sh"

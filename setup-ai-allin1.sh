@@ -2,17 +2,43 @@
 # Optional AI components setup (All-In-One structure analyzer).
 # Creates a dedicated venv in .venv-ai/ — run.sh picks it up automatically.
 #
-# Usage: ./setup-ai.sh
+# Usage: ./setup-ai-allin1.sh            (Linux; macOS Apple Silicon builds NATTEN from source)
+#        PYTHON=python3.12 ./setup-ai-allin1.sh   to pick the interpreter
 # Takes ~10 minutes and ~2.5 GB of disk (torch, demucs, madmom, allin1).
+#
+# Verified combination (dev server): Python 3.12, torch 2.6.0+cu126,
+# NATTEN 0.17.5, allin1 1.1.0, madmom @ MADMOM_REF. NATTEN 0.17.5 ships
+# wheels only for cp310-cp312, hence the Python range below.
 set -e
 cd "$(dirname "$0")"
 
 VENV=".venv-ai"
-PY="${PYTHON:-python3}"
+MADMOM_REF="27f032e8947204902c675e5e341a3faf5dc86dae"
+ALLIN1_VER="1.1.0"
 
-echo "== musslop AI setup =="
-$PY -c 'import sys; assert sys.version_info >= (3, 10), "Python 3.10+ required"' \
-  || { echo "ERROR: Python 3.10+ required"; exit 1; }
+echo "== musslop AI setup: All-In-One =="
+
+pick_python() {
+  local c
+  for c in ${PYTHON:-} python3.12 python3.11 python3.10 python3; do
+    command -v "$c" >/dev/null 2>&1 || continue
+    if "$c" -c 'import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,12) else 1)' 2>/dev/null; then
+      echo "$c"; return 0
+    fi
+  done
+  return 1
+}
+PY="$(pick_python)" || {
+  echo "ERROR: All-In-One needs Python 3.10-3.12 (3.12 recommended): NATTEN 0.17.5 has no"
+  echo "       builds for newer Pythons. Install python3.12 and re-run, or:"
+  echo "       PYTHON=/path/to/python3.12 ./setup-ai-allin1.sh"
+  exit 1; }
+echo "Python: $PY ($("$PY" -c 'import sys; print(sys.version.split()[0])'))"
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" != "arm64" ]; then
+  echo "ERROR: Intel Macs (or a Rosetta shell) are not supported: PyTorch 2.6 has no x86_64 macOS builds."
+  exit 1
+fi
+command -v git >/dev/null || { echo "ERROR: git is required (madmom is installed from GitHub)"; exit 1; }
 
 if [ -x "$VENV/bin/python" ] && "$VENV/bin/python" -c "import allin1" 2>/dev/null; then
   echo "Already installed ($VENV). To reinstall: rm -rf $VENV"
@@ -20,7 +46,7 @@ if [ -x "$VENV/bin/python" ] && "$VENV/bin/python" -c "import allin1" 2>/dev/nul
 fi
 
 echo "[1/4] Creating venv in $VENV ..."
-$PY -m venv "$VENV"
+"$PY" -m venv "$VENV"
 "$VENV/bin/pip" install --quiet --upgrade pip
 
 echo "[2/4] Installing PyTorch (CPU/MPS on macOS, CUDA if available) ..."
@@ -40,8 +66,8 @@ else
 fi
 
 echo "[3/4] Installing madmom, allin1 and a compatible NATTEN ..."
-"$VENV/bin/pip" install --quiet "git+https://github.com/CPJKU/madmom"
-"$VENV/bin/pip" install --quiet allin1
+"$VENV/bin/pip" install --quiet "git+https://github.com/CPJKU/madmom@$MADMOM_REF"
+"$VENV/bin/pip" install --quiet "allin1==$ALLIN1_VER" "demucs==4.1.0" "torch==2.6.0"
 
 # allin1 pulls a fresh natten (0.21+) that dropped the needed API — replace with 0.17.5.
 # IMPORTANT: --no-deps, otherwise pip upgrades torch to latest and breaks everything
