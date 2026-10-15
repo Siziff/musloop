@@ -18,7 +18,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .analysis import analyze, analyze_deep_merge, loop_quality
+from .analysis import analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -872,6 +872,25 @@ def get_audio(track_id: str, transcode: int = Query(0)):
                 json.dump(track, f)
         return FileResponse(safe, media_type="audio/wav")
     return FileResponse(track["orig"], media_type=track["mime"])
+
+
+@app.post("/api/meter/{track_id}")
+def detect_meter(track_id: str, body: dict = Body(...)):
+    """Detect the meter for an existing beat grid without re-segmenting
+    (for markups saved before meter detection). Body: {beats, downbeats,
+    engine}; neural engines trust their downbeats."""
+    track = TRACKS.get(track_id)
+    if not track:
+        raise HTTPException(404, "Track not found")
+    try:
+        beats = [float(x) for x in (body.get("beats") or [])]
+        downbeats = [float(x) for x in (body.get("downbeats") or [])]
+    except (TypeError, ValueError):
+        raise HTTPException(400, "beats/downbeats must be numbers")
+    if len(beats) < 8:
+        raise HTTPException(400, "Not enough beats to detect the meter")
+    neural = body.get("engine") in ("deep", "songformer")
+    return detect_meter_for_beats(track["wav"], beats, downbeats, neural)
 
 
 @app.post("/api/loopability/{track_id}")

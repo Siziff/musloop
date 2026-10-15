@@ -214,6 +214,42 @@ def _neural_phase(beats: np.ndarray, downbeats: np.ndarray, M: int) -> int | Non
     return int(np.argmax([is_db[p::M].sum() for p in range(M)]))
 
 
+def detect_meter_for_beats(path: str, beats: list, downbeats: list,
+                           neural: bool) -> dict:
+    """Meter for an existing beat grid (markups saved before meter
+    detection existed): does not touch the segmentation.
+
+    neural=True: trust the network's downbeats (bar histogram); otherwise
+    run the heuristic on audio accents at the given beats."""
+    b = np.asarray(beats, dtype=float)
+    d = np.asarray(downbeats, dtype=float)
+    if neural:
+        det = meter_from_downbeats(beats, downbeats) or \
+            {"beats_per_bar": 4, "confidence": 0.0, "source": "neural"}
+        acc = [1.0 if len(d) and float(np.min(np.abs(d - t))) < 0.07 else 0.0 for t in b]
+        auto = list(downbeats)
+        ph = int(np.argmin(np.abs(b - float(d[0])))) % det["beats_per_bar"] if len(b) and len(d) else 0
+    else:
+        y, sr = librosa.load(path, sr=SR, mono=True)
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
+        bf = librosa.time_to_frames(b, sr=sr, hop_length=HOP)
+        acc_arr = beat_accents(y, sr, bf, onset_env) if len(bf) >= 2 else np.zeros(len(bf))
+        feats = None
+        if len(bf) >= 24:
+            chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=HOP)
+            fr = librosa.util.fix_frames(bf, x_min=0, x_max=chroma.shape[1] - 1)
+            feats = librosa.util.sync(chroma, fr, aggregate=np.median)
+        det = estimate_meter(acc_arr, feats)
+        M = det["beats_per_bar"]
+        ph = _estimate_downbeat_phase(onset_env, bf, 4) if M == 4 else best_phase(acc_arr, M)
+        acc = _round_list(acc_arr, 2)
+        auto = grid_downbeats(b, M, ph).tolist()
+    meter = _meter_info(det["beats_per_bar"], det, False)
+    meter["phase"] = meter["detected_phase"] = int(ph)
+    return {"beats_per_bar": det["beats_per_bar"], "meter": meter,
+            "beat_accents": acc, "downbeats_auto": auto}
+
+
 def _snap(value: float, grid: np.ndarray) -> float:
     """Nearest grid point."""
     if len(grid) == 0:
@@ -266,6 +302,11 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     bpb = int(beats_per_bar) if override else int(detected["beats_per_bar"])
     phase = 0
     if assumed:
+        d_bpb = int(detected["beats_per_bar"])
+        downbeats_auto = grid_downbeats(b_arr, d_bpb, best_phase(np.asarray(accents), d_bpb)).tolist()
+    else:
+        downbeats_auto = list(downbeats)
+    if assumed:
         phase = best_phase(np.asarray(accents), bpb)
         downbeats = grid_downbeats(b_arr, bpb, phase).tolist()
     elif override and bpb != detected["beats_per_bar"] and len(b_arr) >= bpb:
@@ -275,6 +316,10 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
         phase = int(np.argmin(np.abs(b_arr - float(downbeats[0])))) % max(1, bpb)
     meter = _meter_info(bpb, detected, override)
     meter["phase"] = int(phase)
+    d_bpb = max(1, int(detected["beats_per_bar"]))
+    meter["detected_phase"] = (
+        int(np.argmin(np.abs(b_arr - float(downbeats_auto[0])))) % d_bpb
+        if len(b_arr) and len(downbeats_auto) else 0)
 
     # sections: drop micro "start/end" (<2s), merge adjacent ones shorter than 4s
     raw = [s for s in deep.get("segments", [])
@@ -345,6 +390,7 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
         "beats_per_bar": bpb,
         "meter": meter,
         "beat_accents": accents,
+        "downbeats_auto": downbeats_auto,
     }
 
 
@@ -409,8 +455,14 @@ def analyze(path: str, n_segments: int | None = None,
     downbeat_times = grid_downbeats(beat_times, beats_per_bar, phase)
     meter = _meter_info(beats_per_bar, detected, override)
     meter["phase"] = int(phase)
+    # the auto grid, so the UI can return to "auto" without a re-analysis
+    d_bpb = int(detected["beats_per_bar"])
+    d_phase = _estimate_downbeat_phase(onset_env, beat_frames, 4) if d_bpb == 4 \
+        else best_phase(accents, d_bpb)
+    meter["detected_phase"] = int(d_phase)
     meter_out = {"beats_per_bar": beats_per_bar, "meter": meter,
-                 "beat_accents": _round_list(accents, 2)}
+                 "beat_accents": _round_list(accents, 2),
+                 "downbeats_auto": grid_downbeats(beat_times, d_bpb, d_phase).tolist()}
 
     if len(beat_times) < 16:
         # fallback: uniform split if no rhythm was found

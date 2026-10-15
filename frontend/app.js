@@ -25,6 +25,23 @@ const STR = {
     err_markup: 'Не удалось прочитать разметку:',
     structure_title: 'Структура',
     tempo: 'Темп:',
+    meter: 'Размер:',
+    meter_auto: 'авто',
+    meter_manual: 'вручную',
+    meter_tip: 'Размер такта: сколько долей в такте. Определяется автоматически (по сильным долям, басу, смене аккордов и повторам) — рекомендуем оставить исходный. Меняйте, только если сетка тактов на волне явно не совпадает с музыкой.',
+    meter_detected: 'Определено',
+    meter_conf: 'уверенность',
+    meter_src_heuristic: 'алгоритм',
+    meter_src_neural: 'нейросеть',
+    meter_recommended: 'рекомендуется',
+    meter_use_auto: 'Как в оригинале (авто)',
+    meter_shift: 'Сдвинуть первую долю',
+    meter_shift_tip: 'Если начала тактов на волне стоят не на «раз» — сдвиньте сетку на долю',
+    meter_reanalyze: 'Переразбить части под этот размер',
+    meter_reanalyze_tip: 'Заново найти границы частей с учётом нового размера (сцены этого трека будут сброшены)',
+    meter_changed: 'Размер',
+    meter_note_68: '6/8 обычно слышится как 2 или 3 доли — выберите тот вариант, на котором сетка совпала',
+    meter_low_conf: 'неуверенно — проверьте на слух',
     duration: 'Длительность:',
     parts: 'Частей:',
     fallback: 'ритм не найден — равномерная нарезка',
@@ -243,6 +260,23 @@ const STR = {
     err_markup: 'Failed to read markup:',
     structure_title: 'Structure',
     tempo: 'Tempo:',
+    meter: 'Meter:',
+    meter_auto: 'auto',
+    meter_manual: 'manual',
+    meter_tip: 'Time signature: beats per bar. Detected automatically (strong beats, bass, chord changes, repetition) — we recommend keeping the original. Change it only if the bar grid on the waveform clearly does not match the music.',
+    meter_detected: 'Detected',
+    meter_conf: 'confidence',
+    meter_src_heuristic: 'algorithm',
+    meter_src_neural: 'neural net',
+    meter_recommended: 'recommended',
+    meter_use_auto: 'As in the original (auto)',
+    meter_shift: 'Shift the downbeat',
+    meter_shift_tip: 'If bar lines on the waveform are not on the “one” — move the grid by a beat',
+    meter_reanalyze: 'Re-split parts for this meter',
+    meter_reanalyze_tip: 'Find part boundaries again using the new meter (this track’s scenes will be reset)',
+    meter_changed: 'Meter',
+    meter_note_68: '6/8 is usually felt as 2 or 3 beats — pick the one where the grid lines up',
+    meter_low_conf: 'uncertain — check by ear',
     duration: 'Duration:',
     parts: 'Parts:',
     fallback: 'no rhythm found — uniform split',
@@ -461,6 +495,23 @@ const STR = {
     err_markup: '无法读取标注文件：',
     structure_title: '结构',
     tempo: '速度：',
+    meter: '拍号：',
+    meter_auto: '自动',
+    meter_manual: '手动',
+    meter_tip: '拍号：每小节的拍数。自动检测（强拍、低音、和弦变化、重复）——建议保持原始拍号。仅当波形上的小节线明显与音乐不符时才修改。',
+    meter_detected: '检测结果',
+    meter_conf: '置信度',
+    meter_src_heuristic: '算法',
+    meter_src_neural: '神经网络',
+    meter_recommended: '推荐',
+    meter_use_auto: '与原曲一致（自动）',
+    meter_shift: '移动强拍',
+    meter_shift_tip: '若波形上的小节线不在第一拍——将网格移动一拍',
+    meter_reanalyze: '按此拍号重新分段',
+    meter_reanalyze_tip: '按新拍号重新查找段落边界（此音轨的场景将被重置）',
+    meter_changed: '拍号',
+    meter_note_68: '6/8 通常听起来像 2 拍或 3 拍——选择网格对齐的那个',
+    meter_low_conf: '不确定——请用耳朵确认',
     duration: '时长：',
     parts: '段落数：',
     fallback: '未检测到节奏 — 均匀切分',
@@ -682,6 +733,52 @@ function themeColors() {
     accent2: v('--accent2') || '#d8ff3e',
     danger: v('--danger') || '#ff6b6b'
   };
+}
+
+// Bar grid for a meter: every bpb-th beat starting at `phase`. The phase
+// default comes from per-beat accents (server: analysis.beat_accents).
+const METERS = [2, 3, 4, 5, 6, 7];
+function meterGrid(beats, bpb, phase) {
+  const out = [];
+  if (!beats || !beats.length || !bpb) return out;
+  for (let i = (phase % bpb + bpb) % bpb; i < beats.length; i += bpb) out.push(beats[i]);
+  return out;
+}
+function bestMeterPhase(accents, bpb) {
+  if (!accents || accents.length < bpb) return 0;
+  let best = 0,
+    bs = -Infinity;
+  for (let p = 0; p < bpb; p++) {
+    let sum = 0,
+      n = 0;
+    for (let i = p; i < accents.length; i += bpb) {
+      sum += accents[i];
+      n++;
+    }
+    const m = n ? sum / n : -Infinity;
+    if (m > bs) {
+      bs = m;
+      best = p;
+    }
+  }
+  return best;
+}
+// phase of an existing downbeat grid on the beat list
+function gridPhase(beats, downbeats, bpb) {
+  if (!beats || !beats.length || !downbeats || !downbeats.length) return 0;
+  let bi = 0,
+    bd = Infinity;
+  for (let i = 0; i < beats.length; i++) {
+    const d = Math.abs(beats[i] - downbeats[0]);
+    if (d < bd) {
+      bd = d;
+      bi = i;
+    }
+  }
+  return bi % bpb;
+}
+function meterLabel(bpb) {
+  return bpb === 6 ? '6/8' : `${bpb}/4`;
 }
 function fmt(t) {
   if (t == null || isNaN(t)) return '–';
@@ -2259,6 +2356,20 @@ function App() {
   const [nSeg, setNSeg] = useState('');
   const [aiWorking, setAiWorking] = useState(false); // AI analysis in progress
   const [exportOpen, setExportOpen] = useState(false);
+  const [meterOpen, setMeterOpen] = useState(false);
+  // close the meter menu on an outside click / Esc
+  useEffect(() => {
+    if (!meterOpen) return;
+    const close = e => {
+      if (e.type === 'keydown' ? e.code === 'Escape' : !e.target.closest('.meter-menu, .meter-badge')) setMeterOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [meterOpen]);
   const [openGroups, setOpenGroups] = useState({
     lib: true,
     hist: false
@@ -2541,6 +2652,8 @@ function App() {
           scenes,
           tempo: analysis && analysis.tempo,
           downbeats: analysis && analysis.downbeats || [],
+          beats_per_bar: analysis && analysis.beats_per_bar || 4,
+          phrase_bars: phraseBars,
           tails: tailOn,
           target,
           crossfade
@@ -2581,6 +2694,9 @@ function App() {
     const data = {
       track: trackName,
       tempo: analysis && analysis.tempo,
+      beats_per_bar: analysis && analysis.beats_per_bar,
+      meter_manual: !!(analysis && analysis.meter && analysis.meter.source === 'manual'),
+      meter_phase: analysis && analysis.meter ? analysis.meter.phase : undefined,
       segments,
       scenes
     };
@@ -2608,6 +2724,8 @@ function App() {
       })).filter(s => isFinite(s.start) && isFinite(s.end) && s.end > s.start).sort((a, b) => a.start - b.start);
       if (!segs.length) throw new Error('empty markup');
       setSegments(segs);
+      // a manually chosen meter travels with the markup file
+      if (data.meter_manual && METERS.includes(+data.beats_per_bar)) setMeter(+data.beats_per_bar, Number.isInteger(+data.meter_phase) ? +data.meter_phase : null);
       if (Array.isArray(data.scenes)) {
         setScenesRaw(data.scenes.filter(s => s && Number.isInteger(+s.segIndex) && +s.segIndex >= 0 && +s.segIndex < segs.length).map(s => ({
           id: String(s.id || Math.random().toString(36).slice(2, 8)),
@@ -2719,6 +2837,10 @@ function App() {
           tempo: analysis.tempo,
           beats: analysis.beats,
           downbeats: analysis.downbeats,
+          beats_per_bar: analysis.beats_per_bar,
+          meter: analysis.meter,
+          beat_accents: analysis.beat_accents,
+          downbeats_auto: analysis.downbeats_auto,
           n_suggested: analysis.n_suggested,
           n_max: analysis.n_max,
           engine: analysis.engine,
@@ -2758,12 +2880,45 @@ function App() {
           tempo: markup.tempo || 0,
           beats: markup.beats || [],
           downbeats: markup.downbeats || [],
+          beats_per_bar: markup.beats_per_bar || 4,
+          meter: markup.meter || null,
+          beat_accents: markup.beat_accents || null,
+          downbeats_auto: markup.downbeats_auto || null,
           n_suggested: markup.n_suggested,
           n_max: markup.n_max,
           segments: markup.segments,
           fallback: false,
           engine: markup.engine
         });
+        // markups saved before meter detection: detect it now for the
+        // current beat grid, without touching the parts (the grid stays 4/4;
+        // the badge suggests the detected meter if it differs)
+        if (!markup.meter && (markup.beats || []).length >= 8) {
+          fetch(`/api/meter/${item.track_id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              beats: markup.beats,
+              downbeats: markup.downbeats || [],
+              engine: markup.engine
+            })
+          }).then(r => r.ok ? r.json() : null).then(m => {
+            if (!m) return;
+            setAnalysis(a => a && !a.meter ? {
+              ...a,
+              beat_accents: m.beat_accents,
+              downbeats_auto: m.downbeats_auto,
+              meter: {
+                ...m.meter,
+                beats_per_bar: 4,
+                phase: gridPhase(a.beats, a.downbeats, 4),
+                source: m.meter.detected === 4 ? m.meter.source : 'legacy'
+              }
+            } : a);
+          }).catch(() => {});
+        }
         setSegmentsRaw(markup.segments);
         setScenesRaw(Array.isArray(markup.scenes) ? markup.scenes : []);
       } else {
@@ -3425,7 +3580,7 @@ function App() {
     setToast(msg);
     setTimeout(() => setToast(null), 6000);
   };
-  const doAnalyze = async (id, n, eng) => {
+  const doAnalyze = async (id, n, eng, bpb) => {
     setError(null);
     const useEngine = eng || 'fast';
     const isDeep = useEngine === 'deep' || useEngine === 'songformer';
@@ -3436,6 +3591,7 @@ function App() {
       const params = new URLSearchParams();
       if (n) params.set('n_segments', n);
       if (isDeep) params.set('engine', useEngine);
+      if (bpb) params.set('beats_per_bar', bpb);
       const qs = params.toString();
       const r = await fetch(`/api/analyze/${id}${qs ? '?' + qs : ''}`);
       if (!r.ok) throw new Error((await r.json()).detail || t.err_analyze);
@@ -3457,6 +3613,60 @@ function App() {
       setLoading(null);
       setAiWorking(false);
     }
+  };
+
+  // --- Meter (time signature) ---------------------------------------------
+  // Changing the meter rebuilds the bar grid client-side from the beat list
+  // (instant, parts stay where they are). bpb = null -> back to the detected
+  // ("original") meter. Re-splitting parts for the new meter is a separate,
+  // explicit action (it resets scenes).
+  const setMeter = (bpb, phase) => {
+    setAnalysis(a => {
+      if (!a || !a.beats || !a.beats.length) return a;
+      const m = a.meter || {
+        detected: a.beats_per_bar || 4,
+        confidence: 0,
+        source: 'heuristic',
+        detected_source: 'heuristic'
+      };
+      const detected = m.detected || 4;
+      const auto = bpb == null;
+      const B = auto ? detected : bpb;
+      let ph = phase,
+        db;
+      if (ph == null && B === detected && a.downbeats_auto && a.downbeats_auto.length) {
+        db = a.downbeats_auto;
+        ph = gridPhase(a.beats, db, B);
+      } else {
+        if (ph == null) ph = bestMeterPhase(a.beat_accents, B);
+        db = meterGrid(a.beats, B, ph);
+      }
+      return {
+        ...a,
+        beats_per_bar: B,
+        downbeats: db,
+        meter: {
+          ...m,
+          beats_per_bar: B,
+          phase: ph,
+          source: auto ? m.detected_source || 'heuristic' : 'manual'
+        }
+      };
+    });
+  };
+  const shiftDownbeat = () => {
+    if (!analysis) return;
+    const B = analysis.beats_per_bar || 4;
+    const ph = analysis.meter && analysis.meter.phase != null ? analysis.meter.phase : gridPhase(analysis.beats, analysis.downbeats, B);
+    setMeter(B, (ph + 1) % B);
+  };
+  // a manually chosen meter survives re-analysis (any engine)
+  const manualBpb = analysis && analysis.meter && analysis.meter.source === 'manual' ? analysis.beats_per_bar : null;
+  const resplitForMeter = () => {
+    if (!analysis || !trackId) return;
+    const eng = analysis.engine === 'deep' || analysis.engine === 'songformer' ? analysis.engine : null;
+    const auto = !analysis.meter || analysis.meter.source !== 'manual';
+    doAnalyze(trackId, eng ? null : nSeg ? +nSeg : null, eng, auto ? null : analysis.beats_per_bar);
   };
 
   // Универсальный приём файла: аудио / разметка / прочее — с защитой от
@@ -3815,7 +4025,74 @@ function App() {
     className: "row"
   }, /*#__PURE__*/React.createElement("span", {
     className: "badge"
-  }, t.tempo, " ", /*#__PURE__*/React.createElement("b", null, analysis.tempo.toFixed(1), " BPM")), /*#__PURE__*/React.createElement("span", {
+  }, t.tempo, " ", /*#__PURE__*/React.createElement("b", null, analysis.tempo.toFixed(1), " BPM")), (() => {
+    const m = analysis.meter || {};
+    const B = analysis.beats_per_bar || 4;
+    const det = m.detected || B;
+    const manual = m.source === 'manual';
+    const legacy = m.source === 'legacy'; // old markup: grid is 4/4, detector suggests otherwise
+    const low = m.confidence != null && m.confidence < 0.75 && !manual;
+    const canEdit = (analysis.beats || []).length >= 8;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "dropdown"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: 'badge tip meter-badge' + (manual || legacy ? ' warn' : ''),
+      "data-tip": t.meter_tip,
+      onClick: () => canEdit && setMeterOpen(o => !o),
+      style: {
+        cursor: canEdit ? 'pointer' : 'help'
+      }
+    }, t.meter, " ", /*#__PURE__*/React.createElement("b", null, meterLabel(B)), /*#__PURE__*/React.createElement("span", {
+      className: "meter-src"
+    }, manual ? t.meter_manual : t.meter_auto, low ? ' ?' : ''), canEdit && ' ▾'), meterOpen && /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-menu meter-menu",
+      style: {
+        left: 0,
+        right: 'auto'
+      },
+      onClick: e => e.stopPropagation()
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "meter-info"
+    }, t.meter_detected, ": ", /*#__PURE__*/React.createElement("b", null, meterLabel(det)), ' · ', m.detected_source === 'neural' ? t.meter_src_neural : t.meter_src_heuristic, m.confidence != null && m.confidence > 0 && /*#__PURE__*/React.createElement("span", null, " \xB7 ", t.meter_conf, " ", Math.round(m.confidence * 100), "%"), low && /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'var(--danger)',
+        marginTop: 2
+      }
+    }, t.meter_low_conf)), /*#__PURE__*/React.createElement("div", {
+      className: 'dropdown-item' + (!manual && !legacy ? ' on' : ''),
+      onClick: () => {
+        setMeter(null);
+        setMeterOpen(false);
+        showToast(`${t.meter_changed}: ${meterLabel(det)} (${t.meter_auto})`);
+      }
+    }, "\u2605 ", t.meter_use_auto, " \u2014 ", meterLabel(det), " ", /*#__PURE__*/React.createElement("span", {
+      className: "meter-rec"
+    }, t.meter_recommended)), /*#__PURE__*/React.createElement("div", {
+      className: "meter-grid"
+    }, METERS.map(k => /*#__PURE__*/React.createElement("button", {
+      key: k,
+      className: (manual || legacy) && B === k ? 'on' : '',
+      onClick: () => {
+        setMeter(k);
+        setMeterOpen(false);
+        showToast(`${t.meter_changed}: ${meterLabel(k)} (${t.meter_manual})`);
+      },
+      title: k === det ? t.meter_recommended : ''
+    }, meterLabel(k), k === det ? ' ★' : ''))), /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item",
+      title: t.meter_shift_tip,
+      onClick: shiftDownbeat
+    }, "\u21E5 ", t.meter_shift), /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item",
+      title: t.meter_reanalyze_tip,
+      onClick: () => {
+        setMeterOpen(false);
+        resplitForMeter();
+      }
+    }, "\u21BB ", t.meter_reanalyze), /*#__PURE__*/React.createElement("div", {
+      className: "meter-note"
+    }, t.meter_note_68)));
+  })(), /*#__PURE__*/React.createElement("span", {
     className: "badge"
   }, t.duration, " ", /*#__PURE__*/React.createElement("b", null, fmt(duration))), /*#__PURE__*/React.createElement("span", {
     className: "badge"
@@ -3846,17 +4123,17 @@ function App() {
     onChange: e => setNSeg(e.target.value),
     title: t.n_parts_tip
   }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => doAnalyze(trackId, nSeg ? +nSeg : null),
+    onClick: () => doAnalyze(trackId, nSeg ? +nSeg : null, null, manualBpb),
     disabled: !!loading
   }, t.reanalyze), deepAvailable && /*#__PURE__*/React.createElement("button", {
     className: "ai-btn tip",
     "data-tip": t.engine_tip,
-    onClick: () => doAnalyze(trackId, null, 'deep'),
+    onClick: () => doAnalyze(trackId, null, 'deep', manualBpb),
     disabled: !!loading
   }, "\u2728 ", t.ai_split_btn), songformerAvailable && /*#__PURE__*/React.createElement("button", {
     className: "ai-btn tip",
     "data-tip": t.songformer_tip,
-    onClick: () => doAnalyze(trackId, null, 'songformer'),
+    onClick: () => doAnalyze(trackId, null, 'songformer', manualBpb),
     disabled: !!loading
   }, "\u26A1 ", t.songformer_btn))), /*#__PURE__*/React.createElement("div", {
     className: "row between",

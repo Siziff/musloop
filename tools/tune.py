@@ -84,7 +84,7 @@ def evaluate(pairs, weights=None) -> dict:
     for audio, true_bounds in pairs:
         r = A.analyze(audio)
         pred = [s["start"] for s in r["segments"][1:]]
-        bar = 60.0 / max(r["tempo"], 1e-6) * 4
+        bar = 60.0 / max(r["tempo"], 1e-6) * r.get("beats_per_bar", 4)
         f_bar, p, rc = f_measure(pred, true_bounds, tol=bar)
         f_05, _, _ = f_measure(pred, true_bounds, tol=0.5)
         rows.append((os.path.basename(audio), f_bar, f_05, p, rc,
