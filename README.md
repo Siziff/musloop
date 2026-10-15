@@ -166,35 +166,35 @@ ffmpeg is downloaded automatically with the dependencies — no manual install n
 
 ## Example: one track, step by step
 
-**Track:** Splendorius — *Oblivion Roses* (≈ 3:27, 76 BPM, 4/4). The audio is not included;
+**Track:** Splendorius — *Oblivion Roses* (≈ 3:27, 77 BPM). The audio is not included;
 use your own copy, or any track.
 
-What musslop produced with the fast analysis (no AI engine), after a couple of manual tweaks:
+What the **SongFormer** engine (⚡) produced: 9 parts with musical names, every part loops.
 
-| Part | Time | Length | Behaviour | Loop quality |
-|---|---|---|---|---|
-| A1 | 0:00.0–0:12.9 | 13 s | loops | 72% |
-| B1 | 0:12.9–0:25.8 | 13 s | loops | 75% |
-| C1 | 0:25.8–0:51.3 | 25 s | loops | 64% |
-| D1 | 0:51.3–1:04.1 | 13 s | plays once | 92% |
-| E1 | 1:04.1–1:29.7 | 26 s | loops | 82% |
-| C2 | 1:29.7–1:55.3 | 26 s | loops | 90% |
-| D2 | 1:55.3–2:08.0 | 13 s | plays once | 70% |
-| E2 | 2:08.0–2:33.7 | 26 s | loops | 76% |
-| F1 | 2:33.7–2:59.3 | 26 s | loops | 62% |
-| E3 | 2:59.3–3:12.1 | 13 s | loops | 72% |
-| Outro | 3:12.1–3:26.6 | 14 s | plays once | — |
+| Part | Time | Length | Loop quality |
+|---|---|---|---|
+| Intro | 0:00.0–0:25.7 | 26 s | 69% |
+| Verse | 0:25.7–0:51.3 | 26 s | 85% |
+| Inst | 0:51.3–1:04.1 | 13 s | 68% |
+| Verse 2 | 1:04.1–1:29.7 | 26 s | 88% |
+| Chorus | 1:29.7–1:55.3 | 26 s | 84% |
+| Inst 2 | 1:55.3–2:08.1 | 13 s | 83% |
+| Chorus 2 | 2:08.1–2:33.7 | 26 s | 86% |
+| Inst 3 | 2:33.7–2:59.4 | 26 s | 84% |
+| Chorus 3 | 2:59.4–3:26.6 | 27 s | 76% |
 
-- **Same letter = same music.** C1 / C2, D1 / D2 and E1–E3 are repeats of one section, so any
-  of them can stand in for another.
-- **D1 and D2 are build-ups**, so musslop plays them once and moves on instead of looping
-  them. The last part was split off by hand and marked as an ending (*Outro*).
+- **Functional names.** The neural engine names parts by their role (Intro, Verse, Chorus,
+  Inst = instrumental). The fast engine without AI uses letters instead (A1, B1, A2 …), where
+  the same letter means the same music.
 - **Loop quality** shows how cleanly the end joins back to the start. Above ~75% the seam is
-  usually inaudible; lower scores are worth a listen with ⟲♪.
+  usually inaudible, so most parts here loop cleanly. Intro and Inst (~69%) are worth a listen
+  with ⟲♪.
+- **Meter** is kept as SongFormer detected it (`"meter_manual": false`). If the bar grid on the
+  waveform doesn't match what you hear, pick another meter on the badge next to the BPM.
 
-Two scenes are saved on top: *Exploration* loops C1, and *Something is close* moves to C2 on
-the next phrase. At the table that's **Shift+1** while players look around and **Shift+2**
-when it gets tense.
+Two scenes are saved on top: *Exploration* loops the Verse, and *Something is close* moves to
+the Chorus on the next phrase. At the table that's **Shift+1** while players look around and
+**Shift+2** when it gets tense.
 
 ### The markup file
 
@@ -206,19 +206,19 @@ shortened:
 ```json
 {
   "track": "Splendorius — Oblivion Roses",
-  "tempo": 76,
-  "beats_per_bar": 4,
+  "tempo": 77,
+  "beats_per_bar": 2,
   "meter_manual": false,
   "segments": [
-    { "start": 0.0,    "end": 12.901, "label": "A1", "group": "A", "loop": true,  "transition": false, "loopability": 0.72 },
-    { "start": 25.834, "end": 51.31,  "label": "C1", "group": "C", "loop": true,  "transition": false, "loopability": 0.64 },
-    { "start": 51.31,  "end": 64.091, "label": "D1", "group": "D", "loop": false, "transition": true,  "loopability": 0.92 },
-    { "start": 89.664, "end": 115.329, "label": "C2", "group": "C", "loop": true, "transition": false, "loopability": 0.9 }
+    { "start": 0.0, "end": 25.7, "label": "Intro", "loop": true, "transition": false, "loopability": 0.69 },
+    { "start": 25.7, "end": 51.3, "label": "Verse", "loop": true, "transition": false, "loopability": 0.85 },
+    { "start": 51.3, "end": 64.1, "label": "Inst", "loop": true, "transition": false, "loopability": 0.68 },
+    { "start": 89.7, "end": 115.32, "label": "Chorus", "loop": true, "transition": false, "loopability": 0.84 }
   ],
   "scenes": [
-    { "id": "explore", "name": "Exploration",        "segIndex": 2, "cueMode": "natural", "hotkey": "1",
+    { "id": "explore", "name": "Exploration",        "segIndex": 1, "cueMode": "natural", "hotkey": "1",
       "layers": null, "rate": 1, "crossfade": 0.4, "reverb": 0 },
-    { "id": "tension", "name": "Something is close", "segIndex": 5, "cueMode": "soon",    "hotkey": "2",
+    { "id": "tension", "name": "Something is close", "segIndex": 4, "cueMode": "soon",    "hotkey": "2",
       "layers": null, "rate": 1, "crossfade": 0.4, "reverb": 0.2 }
   ]
 }

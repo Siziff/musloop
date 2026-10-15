@@ -1,112 +1,87 @@
 {
   "track": "Splendorius — Oblivion Roses",
-  "tempo": 76,
-  "beats_per_bar": 4,
+  "tempo": 77,
+  "beats_per_bar": 2,
   "meter_manual": false,
   "segments": [
     {
       "start": 0.0,
-      "end": 12.901,
-      "label": "A1",
-      "group": "A",
+      "end": 25.7,
+      "label": "Intro",
       "loop": true,
       "transition": false,
-      "loopability": 0.72
+      "loopability": 0.69
     },
     {
-      "start": 12.901,
-      "end": 25.834,
-      "label": "B1",
-      "group": "B",
+      "start": 25.7,
+      "end": 51.3,
+      "label": "Verse",
       "loop": true,
       "transition": false,
-      "loopability": 0.75
+      "loopability": 0.85
     },
     {
-      "start": 25.834,
-      "end": 51.31,
-      "label": "C1",
-      "group": "C",
+      "start": 51.3,
+      "end": 64.1,
+      "label": "Inst",
       "loop": true,
       "transition": false,
-      "loopability": 0.64
+      "loopability": 0.68
     },
     {
-      "start": 51.31,
-      "end": 64.091,
-      "label": "D1",
-      "group": "D",
-      "loop": false,
-      "transition": true,
-      "loopability": 0.92
-    },
-    {
-      "start": 64.091,
-      "end": 89.664,
-      "label": "E1",
-      "group": "E",
+      "start": 64.1,
+      "end": 89.7,
+      "label": "Verse 2",
       "loop": true,
       "transition": false,
-      "loopability": 0.82
+      "loopability": 0.88
     },
     {
-      "start": 89.664,
-      "end": 115.329,
-      "label": "C2",
-      "group": "C",
+      "start": 89.7,
+      "end": 115.32,
+      "label": "Chorus",
       "loop": true,
       "transition": false,
-      "loopability": 0.9
+      "loopability": 0.84
     },
     {
-      "start": 115.329,
-      "end": 128.01,
-      "label": "D2",
-      "group": "D",
-      "loop": false,
-      "transition": true,
-      "loopability": 0.7
+      "start": 115.32,
+      "end": 128.1,
+      "label": "Inst 2",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.83
     },
     {
-      "start": 128.01,
-      "end": 153.654,
-      "label": "E2",
-      "group": "E",
+      "start": 128.1,
+      "end": 153.7,
+      "label": "Chorus 2",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.86
+    },
+    {
+      "start": 153.7,
+      "end": 179.388,
+      "label": "Inst 3",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.84
+    },
+    {
+      "start": 179.388,
+      "end": 206.551,
+      "label": "Chorus 3",
       "loop": true,
       "transition": false,
       "loopability": 0.76
-    },
-    {
-      "start": 153.654,
-      "end": 179.297,
-      "label": "F1",
-      "group": "F",
-      "loop": true,
-      "transition": false,
-      "loopability": 0.62
-    },
-    {
-      "start": 179.297,
-      "end": 192.134,
-      "label": "E3",
-      "group": "E",
-      "loop": true,
-      "transition": false,
-      "loopability": 0.72
-    },
-    {
-      "start": 192.134,
-      "end": 206.551,
-      "label": "Outro",
-      "loop": false,
-      "transition": true
     }
   ],
   "scenes": [
     {
       "id": "explore",
       "name": "Exploration",
-      "segIndex": 2,
+      "segIndex": 1,
       "layers": null,
       "rate": 1,
       "crossfade": 0.4,
@@ -117,7 +92,7 @@
     {
       "id": "tension",
       "name": "Something is close",
-      "segIndex": 5,
+      "segIndex": 4,
       "layers": null,
       "rate": 1,
       "crossfade": 0.4,
