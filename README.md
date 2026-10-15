@@ -58,6 +58,7 @@ models have been downloaded. This is a personal passion project, shared freely.
 | Godot 4 example — `MusslopPlayer.gd` plays the export with natural / soon / now cues | ✅ done | `examples/godot` |
 | **Meter (time signature) detection** — 3 vs 4 beats per bar from bass / accents / chord changes / bar repetition (fast engine) or from the neural downbeats (SongFormer, All-In-One); shown as a badge next to BPM with confidence | ✅ done | `analysis.estimate_meter`, `meter` in `/api/analyze` |
 | **Manual meter** — badge menu: *As in the original (auto, recommended)* or 2/4 · 3/4 · 4/4 · 5/4 · 6/8 · 7/4; bar grid updates instantly, **shift the downbeat** by a beat, optional *re-split parts for this meter*; saved in markup, `*.musslop.json` and `manifest.json` (`beats_per_bar`, `phrase_bars`) | ✅ done | Structure → Meter badge, `?beats_per_bar=`, `/api/meter` |
+| **Live: track switching** — ◀ track ▾ ▶ in the Live header and a searchable track list (`T`); `[` / `]` previous / next track. Uses the open project's set-list order, otherwise Library ★ + History. The current track fades out while the next one loads, and playback continues on the new track (its project scene, or part 1) | ✅ done | Live mode |
 | Scenes panel moved below the player; short header tagline | ✅ done | UI |
 | Install scripts: pinned, verified versions (torch 2.6.0, SongFormer commit, madmom commit), Python range checks (3.10–3.13; All-In-One 3.10–3.12), Windows `py` launcher, Intel-Mac / Rosetta detection | ✅ done | `setup*.sh`, `setup*.bat` |
 | Phone remote (LAN / QR) | 🔜 planned separately | — |
@@ -140,8 +141,9 @@ ffmpeg is downloaded automatically with the dependencies — no manual install n
    tracks and scenes of the session, plus notes. Items open in one click and start their scene.
    ☰ → Folders lets you point musslop at your music folder so every file is one click away.
 3. At the table press **L** for **Live mode**: a full-screen desk with the current part, what
-   comes next and when, scene pads, **Next**, **Cancel** and **Fade out** (`F`). Editing
-   shortcuts are disabled while Live is on; `Esc` leaves it.
+   comes next and when, scene pads, **Next**, **Cancel** and **Fade out** (`F`). Switch tracks
+   right there: **◀ / ▶** or `[` / `]` step through the open project (or your library), `T`
+   opens a searchable track list. Editing shortcuts are disabled while Live is on; `Esc` leaves it.
 
 ## Optional neural analysis and layers
 
