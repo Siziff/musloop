@@ -635,7 +635,7 @@ const SEG_COLORS = ['#6a8dff','#34d399','#ffb84f','#ff5b8a','#a06bff',
 // =============================== i18n ======================================
 const STR = {
   ru: {
-    tagline: 'Адаптивные игровые лупы из любого трека: части зацикливаются, по кнопке «Дальше» трек развивается',
+    tagline: 'Адаптивные игровые лупы из любого трека',
     upload_title: 'Трек',
     drop_hint: 'Перетащите аудиофайл сюда или кликните для выбора',
     drop_formats: 'mp3 · wav · ogg · flac · m4a …',
@@ -853,7 +853,7 @@ const STR = {
     project_move_down: 'Ниже',
   },
   en: {
-    tagline: 'Adaptive game-style loops from any track: sections loop forever, hit “Next” and the track evolves',
+    tagline: 'Adaptive game-style loops from any track',
     upload_title: 'Track',
     drop_hint: 'Drop an audio file here or click to browse',
     drop_formats: 'mp3 · wav · ogg · flac · m4a …',
@@ -1071,7 +1071,7 @@ const STR = {
     project_move_down: 'Move down',
   },
   zh: {
-    tagline: '把任意乐曲变成自适应游戏配乐：段落无限循环，点击「下一段」音乐无缝推进',
+    tagline: '把任意乐曲变成自适应游戏循环',
     upload_title: '音轨',
     drop_hint: '将音频文件拖到此处，或点击选择文件',
     drop_formats: 'mp3 · wav · ogg · flac · m4a …',
@@ -3827,105 +3827,6 @@ function App() {
         </div>
       </div>}
 
-      {(analysis || otherSceneGroups.length > 0) && <div className="panel">
-        <div className="row between">
-          <div className="row">
-            <div className="panel-title" style={{ marginBottom: 0 }}>{t.scenes_title}</div>
-            <span className="count">({scenes.length + otherSceneGroups.reduce((n, g) => n + g.scenes.length, 0)})</span>
-          </div>
-          <div className="row">
-            <button className="primary" onClick={() => captureScene()} title={t.scene_capture_tip}
-              disabled={!analysis || !segments[player.segIndex]}>
-              + {t.scene_capture}
-            </button>
-          </div>
-        </div>
-        <div className="hint" style={{ marginTop: 6 }}>{t.scenes_hint}</div>
-        {scenes.length > 0 && <div className="scene-grid">
-          {scenes.map(sc => {
-            const seg = segments[sc.segIndex];
-            const isActive = player.playing && sc.segIndex === player.segIndex;
-            const isQueued = player.pendingTarget() === sc.segIndex;
-            const col = seg ? SEG_COLORS[(seg.group ? seg.group.charCodeAt(0) - 65 : sc.segIndex) % SEG_COLORS.length] : 'var(--muted)';
-            const layerSummary = sc.layers
-              ? ['drums', 'bass', 'other', 'vocals'].filter(n => sc.layers[n] && sc.layers[n].on).map(n => t['layer_' + n][0]).join('')
-              : null;
-            return (
-              <div key={sc.id} className={'scene-card' + (isActive ? ' active' : '') + (isQueued ? ' queued' : '') + (sceneMenu === sc.id ? ' open' : '')}
-                style={{ '--scene-col': col }}
-                onClick={() => sceneMenu === sc.id ? null : applyScene(sc)}>
-                <div className="scene-head">
-                  {sc.hotkey && <kbd>⇧{sc.hotkey}</kbd>}
-                  <input className="scene-name" value={sc.name}
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => updateScene(sc.id, { name: e.target.value })} />
-                  <span className="x" onClick={e => { e.stopPropagation(); setSceneMenu(sceneMenu === sc.id ? null : sc.id); }}>⋯</span>
-                </div>
-                <div className="scene-meta">
-                  <span className="dot" style={{ background: col }}></span>
-                  <span>{seg ? seg.label : '–'}</span>
-                  {layerSummary != null && <span className="time" title={t.scene_layers_tip}>▤ {layerSummary || '—'}</span>}
-                  {sc.rate != null && sc.rate !== 1 && <span className="time">×{sc.rate.toFixed(2)}</span>}
-                  {sc.reverb > 0 && <span className="time">≋{Math.round(sc.reverb * 100)}%</span>}
-                  <span className="time">{t['cue_' + (sc.cueMode || 'natural')]}</span>
-                </div>
-                {isActive && <div className="scene-state">{t.scene_on_air}</div>}
-                {isQueued && <div className="scene-state">{t.queued_badge}</div>}
-                {sceneMenu === sc.id && <div className="scene-menu" onClick={e => e.stopPropagation()}>
-                  <div className="dropdown-item" onClick={() => { applyScene(sc, 'now'); setSceneMenu(null); }}>{t.scene_go_now}</div>
-                  <div className="dropdown-item" onClick={() => {
-                    // overwrite the scene with the current player state
-                    updateScene(sc.id, {
-                      segIndex: player.segIndex,
-                      layers: stemsState === 'ready' ? JSON.parse(JSON.stringify(layers)) : sc.layers,
-                      rate, crossfade, reverb: reverbAmt, cueMode,
-                    });
-                    setSceneMenu(null); showToast(t.scene_updated);
-                  }}>{t.scene_update}</div>
-                  <div className="dropdown-item row-item">
-                    {t.scene_hotkey} (⇧) <select value={sc.hotkey || ''}
-                      onChange={e => { updateScene(sc.id, { hotkey: e.target.value || null }); }}>
-                      <option value="">—</option>
-                      {'123456789'.split('').map(k => <option key={k} value={k}
-                        disabled={scenes.some(o => o.id !== sc.id && o.hotkey === k)}>{k}</option>)}
-                    </select>
-                  </div>
-                  <div className="dropdown-item row-item">
-                    {t.trans_mode} <select value={sc.cueMode || 'natural'}
-                      onChange={e => updateScene(sc.id, { cueMode: e.target.value })}>
-                      {['natural', 'soon', 'now'].map(m => <option key={m} value={m}>{t['cue_' + m]}</option>)}
-                    </select>
-                  </div>
-                  <div className="dropdown-item" style={{ color: 'var(--danger)' }}
-                    onClick={() => { removeScene(sc.id); setSceneMenu(null); }}>✕ {t.scene_delete}</div>
-                </div>}
-              </div>
-            );
-          })}
-        </div>}
-        {analysis && scenes.length > 0 && otherSceneGroups.length > 0 && <div className="scene-track-head" style={{ marginTop: 14 }}>{t.scenes_this_track}: <b>{trackName}</b></div>}
-        {otherSceneGroups.map(g => (
-          <div key={g.track_id} className="scene-track">
-            <div className="scene-track-head">{t.scenes_other_track} <b>{g.track_name}</b>
-              <span className="count">({g.scenes.length})</span></div>
-            <div className="scene-grid">
-              {g.scenes.map(sc => (
-                <div key={sc.id} className="scene-card remote" onClick={() => applyRemoteScene(sc)} title={t.scene_remote_tip}>
-                  <div className="scene-head">
-                    {sc.hotkey && <kbd>⇧{sc.hotkey}</kbd>}
-                    <span className="scene-name">{sc.name}</span>
-                  </div>
-                  <div className="scene-meta">
-                    <span>{sc.part_label || `#${sc.segIndex + 1}`}</span>
-                    <span className="time">{t['cue_' + (sc.cueMode || 'natural')]}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>}
-
       {analysis && <div className="panel">
         <div className="row between">
           <div className="panel-title" style={{ marginBottom: 0 }}>{t.player_title}</div>
@@ -4049,6 +3950,105 @@ function App() {
               </React.Fragment>}
         </div>}
         <div className="hint">{t.keys_hint}</div>
+      </div>}
+
+      {(analysis || otherSceneGroups.length > 0) && <div className="panel">
+        <div className="row between">
+          <div className="row">
+            <div className="panel-title" style={{ marginBottom: 0 }}>{t.scenes_title}</div>
+            <span className="count">({scenes.length + otherSceneGroups.reduce((n, g) => n + g.scenes.length, 0)})</span>
+          </div>
+          <div className="row">
+            <button className="primary" onClick={() => captureScene()} title={t.scene_capture_tip}
+              disabled={!analysis || !segments[player.segIndex]}>
+              + {t.scene_capture}
+            </button>
+          </div>
+        </div>
+        <div className="hint" style={{ marginTop: 6 }}>{t.scenes_hint}</div>
+        {scenes.length > 0 && <div className="scene-grid">
+          {scenes.map(sc => {
+            const seg = segments[sc.segIndex];
+            const isActive = player.playing && sc.segIndex === player.segIndex;
+            const isQueued = player.pendingTarget() === sc.segIndex;
+            const col = seg ? SEG_COLORS[(seg.group ? seg.group.charCodeAt(0) - 65 : sc.segIndex) % SEG_COLORS.length] : 'var(--muted)';
+            const layerSummary = sc.layers
+              ? ['drums', 'bass', 'other', 'vocals'].filter(n => sc.layers[n] && sc.layers[n].on).map(n => t['layer_' + n][0]).join('')
+              : null;
+            return (
+              <div key={sc.id} className={'scene-card' + (isActive ? ' active' : '') + (isQueued ? ' queued' : '') + (sceneMenu === sc.id ? ' open' : '')}
+                style={{ '--scene-col': col }}
+                onClick={() => sceneMenu === sc.id ? null : applyScene(sc)}>
+                <div className="scene-head">
+                  {sc.hotkey && <kbd>⇧{sc.hotkey}</kbd>}
+                  <input className="scene-name" value={sc.name}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => updateScene(sc.id, { name: e.target.value })} />
+                  <span className="x" onClick={e => { e.stopPropagation(); setSceneMenu(sceneMenu === sc.id ? null : sc.id); }}>⋯</span>
+                </div>
+                <div className="scene-meta">
+                  <span className="dot" style={{ background: col }}></span>
+                  <span>{seg ? seg.label : '–'}</span>
+                  {layerSummary != null && <span className="time" title={t.scene_layers_tip}>▤ {layerSummary || '—'}</span>}
+                  {sc.rate != null && sc.rate !== 1 && <span className="time">×{sc.rate.toFixed(2)}</span>}
+                  {sc.reverb > 0 && <span className="time">≋{Math.round(sc.reverb * 100)}%</span>}
+                  <span className="time">{t['cue_' + (sc.cueMode || 'natural')]}</span>
+                </div>
+                {isActive && <div className="scene-state">{t.scene_on_air}</div>}
+                {isQueued && <div className="scene-state">{t.queued_badge}</div>}
+                {sceneMenu === sc.id && <div className="scene-menu" onClick={e => e.stopPropagation()}>
+                  <div className="dropdown-item" onClick={() => { applyScene(sc, 'now'); setSceneMenu(null); }}>{t.scene_go_now}</div>
+                  <div className="dropdown-item" onClick={() => {
+                    // overwrite the scene with the current player state
+                    updateScene(sc.id, {
+                      segIndex: player.segIndex,
+                      layers: stemsState === 'ready' ? JSON.parse(JSON.stringify(layers)) : sc.layers,
+                      rate, crossfade, reverb: reverbAmt, cueMode,
+                    });
+                    setSceneMenu(null); showToast(t.scene_updated);
+                  }}>{t.scene_update}</div>
+                  <div className="dropdown-item row-item">
+                    {t.scene_hotkey} (⇧) <select value={sc.hotkey || ''}
+                      onChange={e => { updateScene(sc.id, { hotkey: e.target.value || null }); }}>
+                      <option value="">—</option>
+                      {'123456789'.split('').map(k => <option key={k} value={k}
+                        disabled={scenes.some(o => o.id !== sc.id && o.hotkey === k)}>{k}</option>)}
+                    </select>
+                  </div>
+                  <div className="dropdown-item row-item">
+                    {t.trans_mode} <select value={sc.cueMode || 'natural'}
+                      onChange={e => updateScene(sc.id, { cueMode: e.target.value })}>
+                      {['natural', 'soon', 'now'].map(m => <option key={m} value={m}>{t['cue_' + m]}</option>)}
+                    </select>
+                  </div>
+                  <div className="dropdown-item" style={{ color: 'var(--danger)' }}
+                    onClick={() => { removeScene(sc.id); setSceneMenu(null); }}>✕ {t.scene_delete}</div>
+                </div>}
+              </div>
+            );
+          })}
+        </div>}
+        {analysis && scenes.length > 0 && otherSceneGroups.length > 0 && <div className="scene-track-head" style={{ marginTop: 14 }}>{t.scenes_this_track}: <b>{trackName}</b></div>}
+        {otherSceneGroups.map(g => (
+          <div key={g.track_id} className="scene-track">
+            <div className="scene-track-head">{t.scenes_other_track} <b>{g.track_name}</b>
+              <span className="count">({g.scenes.length})</span></div>
+            <div className="scene-grid">
+              {g.scenes.map(sc => (
+                <div key={sc.id} className="scene-card remote" onClick={() => applyRemoteScene(sc)} title={t.scene_remote_tip}>
+                  <div className="scene-head">
+                    {sc.hotkey && <kbd>⇧{sc.hotkey}</kbd>}
+                    <span className="scene-name">{sc.name}</span>
+                  </div>
+                  <div className="scene-meta">
+                    <span>{sc.part_label || `#${sc.segIndex + 1}`}</span>
+                    <span className="time">{t['cue_' + (sc.cueMode || 'natural')]}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>}
 
       {/* ---- side drawer: projects · library · music folders ---- */}

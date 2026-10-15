@@ -10,7 +10,7 @@ const SEG_COLORS = ['#6a8dff', '#34d399', '#ffb84f', '#ff5b8a', '#a06bff', '#4fd
 // =============================== i18n ======================================
 const STR = {
   ru: {
-    tagline: 'Адаптивные игровые лупы из любого трека: части зацикливаются, по кнопке «Дальше» трек развивается',
+    tagline: 'Адаптивные игровые лупы из любого трека',
     upload_title: 'Трек',
     drop_hint: 'Перетащите аудиофайл сюда или кликните для выбора',
     drop_formats: 'mp3 · wav · ogg · flac · m4a …',
@@ -228,7 +228,7 @@ const STR = {
     project_move_down: 'Ниже'
   },
   en: {
-    tagline: 'Adaptive game-style loops from any track: sections loop forever, hit “Next” and the track evolves',
+    tagline: 'Adaptive game-style loops from any track',
     upload_title: 'Track',
     drop_hint: 'Drop an audio file here or click to browse',
     drop_formats: 'mp3 · wav · ogg · flac · m4a …',
@@ -446,7 +446,7 @@ const STR = {
     project_move_down: 'Move down'
   },
   zh: {
-    tagline: '把任意乐曲变成自适应游戏配乐：段落无限循环，点击「下一段」音乐无缝推进',
+    tagline: '把任意乐曲变成自适应游戏循环',
     upload_title: '音轨',
     drop_hint: '将音频文件拖到此处，或点击选择文件',
     drop_formats: 'mp3 · wav · ogg · flac · m4a …',
@@ -4082,168 +4082,7 @@ function App() {
         removeSeg(i);
       }
     }, "\u2715"));
-  }))), (analysis || otherSceneGroups.length > 0) && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "row between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "row"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "panel-title",
-    style: {
-      marginBottom: 0
-    }
-  }, t.scenes_title), /*#__PURE__*/React.createElement("span", {
-    className: "count"
-  }, "(", scenes.length + otherSceneGroups.reduce((n, g) => n + g.scenes.length, 0), ")")), /*#__PURE__*/React.createElement("div", {
-    className: "row"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "primary",
-    onClick: () => captureScene(),
-    title: t.scene_capture_tip,
-    disabled: !analysis || !segments[player.segIndex]
-  }, "+ ", t.scene_capture))), /*#__PURE__*/React.createElement("div", {
-    className: "hint",
-    style: {
-      marginTop: 6
-    }
-  }, t.scenes_hint), scenes.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "scene-grid"
-  }, scenes.map(sc => {
-    const seg = segments[sc.segIndex];
-    const isActive = player.playing && sc.segIndex === player.segIndex;
-    const isQueued = player.pendingTarget() === sc.segIndex;
-    const col = seg ? SEG_COLORS[(seg.group ? seg.group.charCodeAt(0) - 65 : sc.segIndex) % SEG_COLORS.length] : 'var(--muted)';
-    const layerSummary = sc.layers ? ['drums', 'bass', 'other', 'vocals'].filter(n => sc.layers[n] && sc.layers[n].on).map(n => t['layer_' + n][0]).join('') : null;
-    return /*#__PURE__*/React.createElement("div", {
-      key: sc.id,
-      className: 'scene-card' + (isActive ? ' active' : '') + (isQueued ? ' queued' : '') + (sceneMenu === sc.id ? ' open' : ''),
-      style: {
-        '--scene-col': col
-      },
-      onClick: () => sceneMenu === sc.id ? null : applyScene(sc)
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "scene-head"
-    }, sc.hotkey && /*#__PURE__*/React.createElement("kbd", null, "\u21E7", sc.hotkey), /*#__PURE__*/React.createElement("input", {
-      className: "scene-name",
-      value: sc.name,
-      onClick: e => e.stopPropagation(),
-      onChange: e => updateScene(sc.id, {
-        name: e.target.value
-      })
-    }), /*#__PURE__*/React.createElement("span", {
-      className: "x",
-      onClick: e => {
-        e.stopPropagation();
-        setSceneMenu(sceneMenu === sc.id ? null : sc.id);
-      }
-    }, "\u22EF")), /*#__PURE__*/React.createElement("div", {
-      className: "scene-meta"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "dot",
-      style: {
-        background: col
-      }
-    }), /*#__PURE__*/React.createElement("span", null, seg ? seg.label : '–'), layerSummary != null && /*#__PURE__*/React.createElement("span", {
-      className: "time",
-      title: t.scene_layers_tip
-    }, "\u25A4 ", layerSummary || '—'), sc.rate != null && sc.rate !== 1 && /*#__PURE__*/React.createElement("span", {
-      className: "time"
-    }, "\xD7", sc.rate.toFixed(2)), sc.reverb > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "time"
-    }, "\u224B", Math.round(sc.reverb * 100), "%"), /*#__PURE__*/React.createElement("span", {
-      className: "time"
-    }, t['cue_' + (sc.cueMode || 'natural')])), isActive && /*#__PURE__*/React.createElement("div", {
-      className: "scene-state"
-    }, t.scene_on_air), isQueued && /*#__PURE__*/React.createElement("div", {
-      className: "scene-state"
-    }, t.queued_badge), sceneMenu === sc.id && /*#__PURE__*/React.createElement("div", {
-      className: "scene-menu",
-      onClick: e => e.stopPropagation()
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "dropdown-item",
-      onClick: () => {
-        applyScene(sc, 'now');
-        setSceneMenu(null);
-      }
-    }, t.scene_go_now), /*#__PURE__*/React.createElement("div", {
-      className: "dropdown-item",
-      onClick: () => {
-        // overwrite the scene with the current player state
-        updateScene(sc.id, {
-          segIndex: player.segIndex,
-          layers: stemsState === 'ready' ? JSON.parse(JSON.stringify(layers)) : sc.layers,
-          rate,
-          crossfade,
-          reverb: reverbAmt,
-          cueMode
-        });
-        setSceneMenu(null);
-        showToast(t.scene_updated);
-      }
-    }, t.scene_update), /*#__PURE__*/React.createElement("div", {
-      className: "dropdown-item row-item"
-    }, t.scene_hotkey, " (\u21E7) ", /*#__PURE__*/React.createElement("select", {
-      value: sc.hotkey || '',
-      onChange: e => {
-        updateScene(sc.id, {
-          hotkey: e.target.value || null
-        });
-      }
-    }, /*#__PURE__*/React.createElement("option", {
-      value: ""
-    }, "\u2014"), '123456789'.split('').map(k => /*#__PURE__*/React.createElement("option", {
-      key: k,
-      value: k,
-      disabled: scenes.some(o => o.id !== sc.id && o.hotkey === k)
-    }, k)))), /*#__PURE__*/React.createElement("div", {
-      className: "dropdown-item row-item"
-    }, t.trans_mode, " ", /*#__PURE__*/React.createElement("select", {
-      value: sc.cueMode || 'natural',
-      onChange: e => updateScene(sc.id, {
-        cueMode: e.target.value
-      })
-    }, ['natural', 'soon', 'now'].map(m => /*#__PURE__*/React.createElement("option", {
-      key: m,
-      value: m
-    }, t['cue_' + m])))), /*#__PURE__*/React.createElement("div", {
-      className: "dropdown-item",
-      style: {
-        color: 'var(--danger)'
-      },
-      onClick: () => {
-        removeScene(sc.id);
-        setSceneMenu(null);
-      }
-    }, "\u2715 ", t.scene_delete)));
-  })), analysis && scenes.length > 0 && otherSceneGroups.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "scene-track-head",
-    style: {
-      marginTop: 14
-    }
-  }, t.scenes_this_track, ": ", /*#__PURE__*/React.createElement("b", null, trackName)), otherSceneGroups.map(g => /*#__PURE__*/React.createElement("div", {
-    key: g.track_id,
-    className: "scene-track"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "scene-track-head"
-  }, t.scenes_other_track, " ", /*#__PURE__*/React.createElement("b", null, g.track_name), /*#__PURE__*/React.createElement("span", {
-    className: "count"
-  }, "(", g.scenes.length, ")")), /*#__PURE__*/React.createElement("div", {
-    className: "scene-grid"
-  }, g.scenes.map(sc => /*#__PURE__*/React.createElement("div", {
-    key: sc.id,
-    className: "scene-card remote",
-    onClick: () => applyRemoteScene(sc),
-    title: t.scene_remote_tip
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "scene-head"
-  }, sc.hotkey && /*#__PURE__*/React.createElement("kbd", null, "\u21E7", sc.hotkey), /*#__PURE__*/React.createElement("span", {
-    className: "scene-name"
-  }, sc.name)), /*#__PURE__*/React.createElement("div", {
-    className: "scene-meta"
-  }, /*#__PURE__*/React.createElement("span", null, sc.part_label || `#${sc.segIndex + 1}`), /*#__PURE__*/React.createElement("span", {
-    className: "time"
-  }, t['cue_' + (sc.cueMode || 'natural')])))))))), analysis && /*#__PURE__*/React.createElement("div", {
+  }))), analysis && /*#__PURE__*/React.createElement("div", {
     className: "panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row between"
@@ -4486,7 +4325,168 @@ function App() {
     onClick: unloadStems
   }, t.stems_off))), /*#__PURE__*/React.createElement("div", {
     className: "hint"
-  }, t.keys_hint)), drawerOpen && /*#__PURE__*/React.createElement("div", {
+  }, t.keys_hint)), (analysis || otherSceneGroups.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "row between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title",
+    style: {
+      marginBottom: 0
+    }
+  }, t.scenes_title), /*#__PURE__*/React.createElement("span", {
+    className: "count"
+  }, "(", scenes.length + otherSceneGroups.reduce((n, g) => n + g.scenes.length, 0), ")")), /*#__PURE__*/React.createElement("div", {
+    className: "row"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "primary",
+    onClick: () => captureScene(),
+    title: t.scene_capture_tip,
+    disabled: !analysis || !segments[player.segIndex]
+  }, "+ ", t.scene_capture))), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: 6
+    }
+  }, t.scenes_hint), scenes.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "scene-grid"
+  }, scenes.map(sc => {
+    const seg = segments[sc.segIndex];
+    const isActive = player.playing && sc.segIndex === player.segIndex;
+    const isQueued = player.pendingTarget() === sc.segIndex;
+    const col = seg ? SEG_COLORS[(seg.group ? seg.group.charCodeAt(0) - 65 : sc.segIndex) % SEG_COLORS.length] : 'var(--muted)';
+    const layerSummary = sc.layers ? ['drums', 'bass', 'other', 'vocals'].filter(n => sc.layers[n] && sc.layers[n].on).map(n => t['layer_' + n][0]).join('') : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: sc.id,
+      className: 'scene-card' + (isActive ? ' active' : '') + (isQueued ? ' queued' : '') + (sceneMenu === sc.id ? ' open' : ''),
+      style: {
+        '--scene-col': col
+      },
+      onClick: () => sceneMenu === sc.id ? null : applyScene(sc)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "scene-head"
+    }, sc.hotkey && /*#__PURE__*/React.createElement("kbd", null, "\u21E7", sc.hotkey), /*#__PURE__*/React.createElement("input", {
+      className: "scene-name",
+      value: sc.name,
+      onClick: e => e.stopPropagation(),
+      onChange: e => updateScene(sc.id, {
+        name: e.target.value
+      })
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "x",
+      onClick: e => {
+        e.stopPropagation();
+        setSceneMenu(sceneMenu === sc.id ? null : sc.id);
+      }
+    }, "\u22EF")), /*#__PURE__*/React.createElement("div", {
+      className: "scene-meta"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "dot",
+      style: {
+        background: col
+      }
+    }), /*#__PURE__*/React.createElement("span", null, seg ? seg.label : '–'), layerSummary != null && /*#__PURE__*/React.createElement("span", {
+      className: "time",
+      title: t.scene_layers_tip
+    }, "\u25A4 ", layerSummary || '—'), sc.rate != null && sc.rate !== 1 && /*#__PURE__*/React.createElement("span", {
+      className: "time"
+    }, "\xD7", sc.rate.toFixed(2)), sc.reverb > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "time"
+    }, "\u224B", Math.round(sc.reverb * 100), "%"), /*#__PURE__*/React.createElement("span", {
+      className: "time"
+    }, t['cue_' + (sc.cueMode || 'natural')])), isActive && /*#__PURE__*/React.createElement("div", {
+      className: "scene-state"
+    }, t.scene_on_air), isQueued && /*#__PURE__*/React.createElement("div", {
+      className: "scene-state"
+    }, t.queued_badge), sceneMenu === sc.id && /*#__PURE__*/React.createElement("div", {
+      className: "scene-menu",
+      onClick: e => e.stopPropagation()
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item",
+      onClick: () => {
+        applyScene(sc, 'now');
+        setSceneMenu(null);
+      }
+    }, t.scene_go_now), /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item",
+      onClick: () => {
+        // overwrite the scene with the current player state
+        updateScene(sc.id, {
+          segIndex: player.segIndex,
+          layers: stemsState === 'ready' ? JSON.parse(JSON.stringify(layers)) : sc.layers,
+          rate,
+          crossfade,
+          reverb: reverbAmt,
+          cueMode
+        });
+        setSceneMenu(null);
+        showToast(t.scene_updated);
+      }
+    }, t.scene_update), /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item row-item"
+    }, t.scene_hotkey, " (\u21E7) ", /*#__PURE__*/React.createElement("select", {
+      value: sc.hotkey || '',
+      onChange: e => {
+        updateScene(sc.id, {
+          hotkey: e.target.value || null
+        });
+      }
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "\u2014"), '123456789'.split('').map(k => /*#__PURE__*/React.createElement("option", {
+      key: k,
+      value: k,
+      disabled: scenes.some(o => o.id !== sc.id && o.hotkey === k)
+    }, k)))), /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item row-item"
+    }, t.trans_mode, " ", /*#__PURE__*/React.createElement("select", {
+      value: sc.cueMode || 'natural',
+      onChange: e => updateScene(sc.id, {
+        cueMode: e.target.value
+      })
+    }, ['natural', 'soon', 'now'].map(m => /*#__PURE__*/React.createElement("option", {
+      key: m,
+      value: m
+    }, t['cue_' + m])))), /*#__PURE__*/React.createElement("div", {
+      className: "dropdown-item",
+      style: {
+        color: 'var(--danger)'
+      },
+      onClick: () => {
+        removeScene(sc.id);
+        setSceneMenu(null);
+      }
+    }, "\u2715 ", t.scene_delete)));
+  })), analysis && scenes.length > 0 && otherSceneGroups.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "scene-track-head",
+    style: {
+      marginTop: 14
+    }
+  }, t.scenes_this_track, ": ", /*#__PURE__*/React.createElement("b", null, trackName)), otherSceneGroups.map(g => /*#__PURE__*/React.createElement("div", {
+    key: g.track_id,
+    className: "scene-track"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "scene-track-head"
+  }, t.scenes_other_track, " ", /*#__PURE__*/React.createElement("b", null, g.track_name), /*#__PURE__*/React.createElement("span", {
+    className: "count"
+  }, "(", g.scenes.length, ")")), /*#__PURE__*/React.createElement("div", {
+    className: "scene-grid"
+  }, g.scenes.map(sc => /*#__PURE__*/React.createElement("div", {
+    key: sc.id,
+    className: "scene-card remote",
+    onClick: () => applyRemoteScene(sc),
+    title: t.scene_remote_tip
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "scene-head"
+  }, sc.hotkey && /*#__PURE__*/React.createElement("kbd", null, "\u21E7", sc.hotkey), /*#__PURE__*/React.createElement("span", {
+    className: "scene-name"
+  }, sc.name)), /*#__PURE__*/React.createElement("div", {
+    className: "scene-meta"
+  }, /*#__PURE__*/React.createElement("span", null, sc.part_label || `#${sc.segIndex + 1}`), /*#__PURE__*/React.createElement("span", {
+    className: "time"
+  }, t['cue_' + (sc.cueMode || 'natural')])))))))), drawerOpen && /*#__PURE__*/React.createElement("div", {
     className: "drawer-backdrop",
     onClick: () => setDrawerOpen(false)
   }), /*#__PURE__*/React.createElement("aside", {
