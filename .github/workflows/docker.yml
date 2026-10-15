@@ -2,7 +2,7 @@ name: Docker
 on:
   push:
     branches: [main, dev]
-    paths: [Dockerfile, .dockerignore, docker-compose.yml, requirements.txt, backend/**, frontend/**, tests/smoke_api.py, .github/workflows/docker.yml]
+    paths: [Dockerfile, Dockerfile.ai, .dockerignore, 'docker-compose*.yml', requirements.txt, backend/**, frontend/**, tools/songformer_analyze.py, tools/demix.py, tests/**, .github/workflows/docker.yml]
   pull_request:
   workflow_dispatch:
 
@@ -67,3 +67,46 @@ jobs:
           docker exec musloop-arm python -c "import librosa, sklearn, numba; print('arm64 imports ok')"
           docker exec musloop-arm ffmpeg -hide_banner -version | head -1
           echo "::notice title=arm64 image::$(docker image ls musloop:arm64 --format '{{.Size}}')"
+
+  ai-cpu:
+    # the full image: SongFormer + Demucs on CPU, weights baked in, no network at runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Free disk space (runner has ~14 GB; the AI image needs ~10 GB to build)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker system prune -af >/dev/null
+          df -h /
+      - uses: actions/checkout@v4
+      - name: Build musloop:ai (CPU)
+        run: DOCKER_BUILDKIT=1 docker build -f Dockerfile.ai -t musloop:ai .
+      - name: Image size
+        run: |
+          docker image ls musloop:ai --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=ai image::$(docker image ls musloop:ai --format '{{.Size}}')"
+      - name: Start (no network inside the container -> proves the weights are baked in)
+        run: |
+          docker network create --internal nonet
+          docker run -d --name musloop-ai --network nonet -v musloop-ai-ci:/data musloop:ai
+          # reach it through a socat sidecar on the default bridge (the app container itself stays offline)
+          docker run -d --name proxy --network nonet -p 8801:8801 alpine/socat tcp-listen:8801,fork,reuseaddr tcp-connect:musloop-ai:8801 || true
+          docker network connect bridge proxy
+          for i in $(seq 1 90); do curl -fs localhost:8801/api/health && break; sleep 2; done
+          curl -fs localhost:8801/api/health | tee /tmp/health.json
+          python3 -c "import json; h=json.load(open('/tmp/health.json')); assert h['songformer_available'], h"
+      - name: Test track
+        run: |
+          docker exec musloop-ai ffmpeg -loglevel error \
+            -f lavfi -i "sine=frequency=110:duration=32" \
+            -f lavfi -i "sine=frequency=880:duration=32,volume='if(lt(mod(t,0.5),0.05),1,0.05)':eval=frame" \
+            -f lavfi -i "sine=frequency=165:duration=32" \
+            -f lavfi -i "anoisesrc=d=32:c=pink:a=0.3,volume='if(lt(mod(t,0.5),0.06),1,0.1)':eval=frame" \
+            -filter_complex "[0][1]amix=inputs=2[a];[2][3]amix=inputs=2[b];[a][b]concat=n=2:v=0:a=1,volume=2" \
+            -ac 2 -ar 44100 /tmp/test.mp3
+          docker cp musloop-ai:/tmp/test.mp3 ./test.mp3
+      - name: Full check (fast + SongFormer analysis, Demucs layers, export) — offline
+        run: python3 tests/fullcheck.py 8801 ./test.mp3
+      - name: Logs
+        if: always()
+        run: docker logs musloop-ai 2>&1 | tail -80

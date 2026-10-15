@@ -13,6 +13,8 @@ marketing
 habr_img
 assets
 tools
+!tools/songformer_analyze.py
+!tools/demix.py
 **/__pycache__
 **/*.pyc
 *.log
@@ -28,5 +30,8 @@ run.sh
 run.bat
 requirements-dev.txt
 Dockerfile
+Dockerfile.ai
+docker-compose.ai.yml
+docker-compose.cuda.yml
 docker-compose.yml
 .dockerignore

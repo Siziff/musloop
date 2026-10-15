@@ -1,0 +1,16 @@
+# Add-on for docker-compose.ai.yml: build PyTorch for CUDA and give the
+# container the NVIDIA GPU.
+#   docker compose -f docker-compose.ai.yml -f docker-compose.cuda.yml up -d
+services:
+  musloop:
+    build:
+      args:
+        TORCH_FLAVOR: cu126
+    image: musloop:ai-cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
