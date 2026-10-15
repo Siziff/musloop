@@ -6,7 +6,9 @@
 #
 # Or: docker compose up -d   (see docker-compose.yml)
 #
-# Size: roughly 0.6-0.7 GB (python:3.12-slim ~120 MB + Python deps ~390 MB + ffmpeg).
+# Size: ~600 MB (python:3.12-slim ~120 MB + numpy/scipy/numba/librosa ~390 MB
+# + a static ffmpeg ~80 MB). Debian's ffmpeg package would add ~450 MB of
+# video/X11 libraries we don't need.
 # Works on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5 64-bit).
 # The optional AI engines (SongFormer / All-In-One, several GB of PyTorch)
 # are NOT included — install them natively with setup-ai-*.sh if you need them.
@@ -18,21 +20,19 @@ FROM python:${PYTHON_VERSION}-slim AS build
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN python -m venv /venv
 COPY requirements.txt /tmp/requirements.txt
+# ffmpeg: imageio-ffmpeg ships a static build (no system libraries needed) —
+# link it onto PATH for the app and yt-dlp. Then trim what the runtime doesn't
+# need: pip, test suites, bytecode caches.
 RUN /venv/bin/pip install --upgrade pip \
  && /venv/bin/pip install -r /tmp/requirements.txt \
- # trim: the system ffmpeg is used instead of imageio-ffmpeg's 77 MB binary,
- # pip is not needed at runtime, test suites and bytecode caches are dead weight
- && rm -rf /venv/lib/python*/site-packages/imageio_ffmpeg/binaries/ffmpeg-* \
+ && ln -s "$(/venv/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /venv/bin/ffmpeg \
+ && /venv/bin/ffmpeg -hide_banner -version | head -1 \
  && /venv/bin/pip uninstall -y pip \
  && find /venv -type d \( -name tests -o -name __pycache__ \) -prune -exec rm -rf {} +
 
 # ---------- runtime ----------
 FROM python:${PYTHON_VERSION}-slim
-# ffmpeg: decoding uploads, export, yt-dlp; --no-install-recommends keeps it lean
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg \
- && rm -rf /var/lib/apt/lists/* \
- && useradd --create-home --uid 1000 musslop \
+RUN useradd --create-home --uid 1000 musslop \
  && mkdir -p /data && chown musslop:musslop /data
 
 COPY --from=build /venv /venv

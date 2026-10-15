@@ -147,7 +147,7 @@ git clone https://github.com/Siziff/musslop.git && cd musslop
 docker compose up -d        # → http://localhost:8801
 ```
 
-- The image is roughly 0.6–0.7 GB and runs on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5).
+- The image is about 600 MB and runs on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5).
 - Your tracks, markups and projects live in the `musslop-data` volume and survive updates:
   `git pull && docker compose up -d --build`.
 - To use ☰ → **Folders**, uncomment the music folder line in `docker-compose.yml`
