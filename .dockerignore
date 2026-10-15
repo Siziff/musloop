@@ -23,7 +23,6 @@ tools
 *.md
 !README.md
 .env
-frontend/mockups
 setup*.sh
 setup*.bat
 run.sh

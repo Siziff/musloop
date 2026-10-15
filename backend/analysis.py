@@ -21,7 +21,7 @@ import librosa
 SR = 22050
 HOP = 512
 
-# Boundary scoring weights (tuned via tools/tune.py on manual markups)
+# Boundary scoring weights (tuned on manual markups; the tuning script lives in the dev branch)
 BOUNDARY_WEIGHTS = {
     "loop_q": 0.30,   # loop closure quality left/right of the boundary
     "phrase": 0.20,   # part lengths are multiples of 4/8 bars
@@ -448,7 +448,7 @@ def analyze(path: str, n_segments: int | None = None,
     beats_per_bar = int(beats_per_bar) if override else int(detected["beats_per_bar"])
     if beats_per_bar == 4:
         # 4/4: the original onset-based phase (the segmentation weights were
-        # tuned with it, see tools/tune.py)
+        # tuned with it)
         phase = _estimate_downbeat_phase(onset_env, beat_frames, 4)
     else:
         phase = best_phase(accents, beats_per_bar)
