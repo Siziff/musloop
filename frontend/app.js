@@ -183,6 +183,15 @@ const STR = {
     live_btn: 'Live-режим',
     live_tip: 'Полноэкранный пульт для сессии: крупные кнопки, без редактирования (клавиша L)',
     live_title: 'LIVE',
+    live_prev_track: 'Предыдущий трек',
+    live_next_track: 'Следующий трек',
+    live_tracks_tip: 'Выбрать трек',
+    live_tracks_project: 'Проект',
+    live_tracks_library: 'Библиотека ★ и история',
+    live_tracks_filter: 'Поиск трека…',
+    live_tracks_hint: 'Enter — открыть первый найденный · [ / ] — соседний трек · Esc — закрыть',
+    live_switching: 'Загрузка:',
+    live_loaded: 'открыт',
     live_exit: 'Выйти',
     live_now: 'Сейчас играет',
     live_ready: 'Готово к запуску',
@@ -219,7 +228,7 @@ const STR = {
     scenes_this_track: 'Этот трек',
     scenes_other_track: 'Трек:',
     scene_remote_tip: 'Сцена другого трека: клик загрузит трек и запустит сцену',
-    live_keys: 'Пробел — играть/стоп · → / Enter — дальше · 1–9, 0 — переход в часть 1–10 · Shift+1–9 — сцены · Backspace — отменить переход · F — затухание · L / Esc — выйти из Live',
+    live_keys: 'Пробел — играть/стоп · → / Enter — дальше · 1–9, 0 — переход в часть 1–10 · Shift+1–9 — сцены · Backspace — отменить переход · F — затухание · [ / ] — соседний трек · T — список треков · L / Esc — выйти из Live',
     part_hotkey_tip: 'Клавиша части: нажми во время игры — переход в неё; ещё раз — отмена',
     // --- projects ---
     project_title: 'Проект',
@@ -418,6 +427,15 @@ const STR = {
     live_btn: 'Live mode',
     live_tip: 'Full-screen session desk: big buttons, no editing (key L)',
     live_title: 'LIVE',
+    live_prev_track: 'Previous track',
+    live_next_track: 'Next track',
+    live_tracks_tip: 'Pick a track',
+    live_tracks_project: 'Project',
+    live_tracks_library: 'Library ★ and history',
+    live_tracks_filter: 'Search tracks…',
+    live_tracks_hint: 'Enter — open the first match · [ / ] — neighbour track · Esc — close',
+    live_switching: 'Loading:',
+    live_loaded: 'open',
     live_exit: 'Exit',
     live_now: 'Now playing',
     live_ready: 'Ready',
@@ -454,7 +472,7 @@ const STR = {
     scenes_this_track: 'This track',
     scenes_other_track: 'Track:',
     scene_remote_tip: 'Scene of another track: click loads the track and starts the scene',
-    live_keys: 'Space — play/stop · → / Enter — next · 1–9, 0 — cue part 1–10 · Shift+1–9 — scenes · Backspace — cancel transition · F — fade out · L / Esc — leave Live',
+    live_keys: 'Space — play/stop · → / Enter — next · 1–9, 0 — cue part 1–10 · Shift+1–9 — scenes · Backspace — cancel transition · F — fade out · [ / ] — prev/next track · T — track list · L / Esc — leave Live',
     part_hotkey_tip: 'Part hotkey: press while playing to cue this part; press again to cancel',
     // --- projects ---
     project_title: 'Project',
@@ -654,6 +672,15 @@ const STR = {
     live_btn: '现场模式',
     live_tip: '全屏演出台：大按钮，不可编辑（快捷键 L）',
     live_title: 'LIVE',
+    live_prev_track: '上一首',
+    live_next_track: '下一首',
+    live_tracks_tip: '选择音轨',
+    live_tracks_project: '项目',
+    live_tracks_library: '资料库 ★ 与历史',
+    live_tracks_filter: '搜索音轨…',
+    live_tracks_hint: 'Enter — 打开第一个匹配 · [ / ] — 相邻音轨 · Esc — 关闭',
+    live_switching: '加载中：',
+    live_loaded: '已打开',
     live_exit: '退出',
     live_now: '正在播放',
     live_ready: '准备就绪',
@@ -690,7 +717,7 @@ const STR = {
     scenes_this_track: '当前曲目',
     scenes_other_track: '曲目：',
     scene_remote_tip: '其他曲目的场景：点击将加载该曲目并启动场景',
-    live_keys: '空格 — 播放/停止 · → / Enter — 下一个 · 1–9、0 — 切到第 1–10 段 · Shift+1–9 — 场景 · Backspace — 取消切换 · F — 淡出 · L / Esc — 退出现场模式',
+    live_keys: '空格 — 播放/停止 · → / Enter — 下一个 · 1–9、0 — 切到第 1–10 段 · Shift+1–9 — 场景 · Backspace — 取消切换 · F — 淡出 · [ / ] — 上/下一首 · T — 音轨列表 · L / Esc — 退出现场模式',
     part_hotkey_tip: '段快捷键：播放时按下排队切换到此段；再按一次取消',
     // --- projects ---
     project_title: '项目',
@@ -2853,9 +2880,12 @@ function App() {
   }, [trackId, segments, analysis, scenes]);
 
   // open a track from history: audio from the server + saved markup
-  const openFromHistory = async item => {
+  // opts.beforeSwap: a promise to await before the old track is torn down
+  // (Live track switch: fetch + decode run while the current track fades out)
+  const openFromHistory = async (item, opts = {}) => {
     setError(null);
-    player.stop();
+    if (!opts.beforeSwap) player.stop();
+    let ok = false;
     try {
       setLoading(t.loading_history);
       const [audioR, markupR] = await Promise.all([fetch(`/api/audio/${item.track_id}`), fetch(`/api/markup/${item.track_id}`)]);
@@ -2867,6 +2897,10 @@ function App() {
         buf = await player.decode(ab);
       } catch (e) {
         buf = null;
+      }
+      if (opts.beforeSwap) {
+        await opts.beforeSwap;
+        player.stop();
       }
       setTrackId(item.track_id);
       setTrackName(item.name);
@@ -2940,11 +2974,14 @@ function App() {
         player.buffer = wavBuf;
         setBuffer(wavBuf);
       }
+      ok = true;
     } catch (e) {
+      if (opts.beforeSwap) player.stop();
       setError(String(e.message || e));
     } finally {
       setLoading(null);
     }
+    return ok;
   };
   const deleteFromHistory = async (e, item) => {
     e.stopPropagation();
@@ -3562,6 +3599,119 @@ function App() {
       name: sc.track_name
     });
   };
+  // --- Live: switch tracks without leaving the desk ---------------------------
+  // Track list for Live: the open project's items (in set-list order) if a
+  // project is open, otherwise Library ★ then History. Switching fades the
+  // current track out while the next one downloads; if music was playing,
+  // the new track starts by itself (its project scene, or part 1).
+  const [liveTracksOpen, setLiveTracksOpen] = useState(false);
+  const [liveTrackFilter, setLiveTrackFilter] = useState('');
+  useEffect(() => {
+    if (liveTracksOpen) setLiveTrackFilter('');
+  }, [liveTracksOpen]);
+  useEffect(() => {
+    if (!liveMode) setLiveTracksOpen(false);
+  }, [liveMode]);
+  const [liveLoadTick, setLiveLoadTick] = useState(0);
+  const [liveSwitching, setLiveSwitching] = useState(null); // name of the track being loaded
+  const livePlayRef = useRef(null); // { sceneId } to start after a Live switch
+  const liveSwitchingRef = useRef(false);
+  const liveCurKeyRef = useRef(null);
+  const liveTrackList = (() => {
+    if (project && project.groups && project.groups.some(g => g.items.length)) {
+      const out = [];
+      for (const g of project.groups) for (const it of g.items) {
+        if (!it.available) continue;
+        out.push({
+          key: it.id,
+          track_id: it.track_id,
+          name: it.track_name,
+          scene_id: it.scene_id || null,
+          group: g.name,
+          sub: it.scene_name || ''
+        });
+      }
+      return {
+        source: 'project',
+        items: out
+      };
+    }
+    const fav = history.filter(h => h.favorite),
+      rest = history.filter(h => !h.favorite);
+    return {
+      source: 'library',
+      items: [...fav, ...rest].map(h => ({
+        key: h.track_id,
+        track_id: h.track_id,
+        name: h.name,
+        scene_id: null,
+        fav: !!h.favorite,
+        sub: h.duration != null ? fmt(h.duration) : ''
+      }))
+    };
+  })();
+  const liveCurIndex = (() => {
+    const L = liveTrackList.items;
+    // project: prefer the exact item (scene) last opened, else the first item of this track
+    const k = L.findIndex(x => x.key === liveCurKeyRef.current && x.track_id === trackId);
+    return k >= 0 ? k : L.findIndex(x => x.track_id === trackId);
+  })();
+  const liveOpenTrack = async it => {
+    if (!it || liveSwitchingRef.current) return;
+    liveCurKeyRef.current = it.key;
+    setLiveTracksOpen(false);
+    if (it.track_id === trackId) {
+      // same track: just start its scene / keep going
+      if (it.scene_id) {
+        const sc = scenes.find(x => x.id === it.scene_id);
+        if (sc) applyScene(sc);
+      } else if (!player.playing) player.play(0);
+      force(x => x + 1);
+      return;
+    }
+    liveSwitchingRef.current = true;
+    setLiveSwitching(it.name);
+    const wasPlaying = player.playing;
+    const fade = wasPlaying ? new Promise(r => {
+      player.fadeOut(1.5);
+      setTimeout(r, 1600);
+    }) : null;
+    try {
+      const ok = await openFromHistory({
+        track_id: it.track_id,
+        name: it.name
+      }, fade ? {
+        beforeSwap: fade
+      } : {});
+      if (ok && (wasPlaying || it.scene_id)) {
+        livePlayRef.current = {
+          sceneId: it.scene_id
+        };
+        setLiveLoadTick(x => x + 1);
+      }
+    } finally {
+      liveSwitchingRef.current = false;
+      setLiveSwitching(null);
+    }
+  };
+  // start the freshly loaded track (runs after the player got the new segments)
+  useEffect(() => {
+    const req = livePlayRef.current;
+    if (!req || !buffer || !segments.length || player.buffer !== buffer) return;
+    livePlayRef.current = null;
+    const sc = req.sceneId ? scenes.find(x => x.id === req.sceneId) : null;
+    setTimeout(() => {
+      if (sc) applyScene(sc);else player.play(0);
+    }, 30);
+  }, [liveLoadTick, buffer, segments]);
+  const liveStepTrack = dir => {
+    const L = liveTrackList.items;
+    if (!L.length) return;
+    const i = liveCurIndex < 0 ? dir > 0 ? 0 : L.length - 1 : liveCurIndex + dir;
+    if (i < 0 || i >= L.length) return;
+    liveOpenTrack(L[i]);
+  };
+
   // Shift+digit: current track's scenes win; otherwise any track's scene with that hotkey
   const sceneByHotkey = d => scenes.find(s => s.hotkey === d) || allScenes.find(s => s.hotkey === d && s.track_id !== trackId) || null;
   // the active scene highlight follows the playing part
@@ -3824,7 +3974,10 @@ function App() {
     setLiveMode,
     sceneByHotkey,
     applyRemoteScene,
-    trackId
+    trackId,
+    liveStepTrack,
+    setLiveTracksOpen,
+    liveTracksOpen
   };
   useEffect(() => {
     const h = e => {
@@ -3836,9 +3989,24 @@ function App() {
         return;
       }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.code === 'Escape' && k.liveMode && k.liveTracksOpen) {
+        e.preventDefault();
+        k.setLiveTracksOpen(false);
+        return;
+      }
       if (e.code === 'Escape' && k.liveMode) {
         e.preventDefault();
         k.setLiveMode(false);
+        return;
+      }
+      if (k.liveMode && (e.code === 'BracketLeft' || e.code === 'BracketRight')) {
+        e.preventDefault();
+        k.liveStepTrack(e.code === 'BracketRight' ? 1 : -1);
+        return;
+      }
+      if (k.liveMode && e.code === 'KeyT') {
+        e.preventDefault();
+        k.setLiveTracksOpen(o => !o);
         return;
       }
       if (e.code === 'Space') {
@@ -5155,9 +5323,27 @@ function App() {
       className: "live-top"
     }, /*#__PURE__*/React.createElement("div", {
       className: "live-title"
-    }, "\u26F6 ", t.live_title, " ", /*#__PURE__*/React.createElement("span", {
+    }, "\u26F6 ", t.live_title, /*#__PURE__*/React.createElement("div", {
+      className: "live-track"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      title: t.live_prev_track + ' [',
+      disabled: !!liveSwitching || liveCurIndex <= 0 && liveCurIndex !== -1,
+      onClick: () => liveStepTrack(-1)
+    }, "\u25C0"), /*#__PURE__*/React.createElement("button", {
+      className: 'live-track-name' + (liveTracksOpen ? ' on' : ''),
+      title: t.live_tracks_tip + ' (T)',
+      onClick: () => setLiveTracksOpen(o => !o)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "nm"
+    }, liveSwitching ? `${t.live_switching} ${liveSwitching}` : trackName), liveTrackList.items.length > 0 && liveCurIndex >= 0 && /*#__PURE__*/React.createElement("span", {
       className: "time"
-    }, trackName)), /*#__PURE__*/React.createElement("div", {
+    }, liveCurIndex + 1, "/", liveTrackList.items.length), /*#__PURE__*/React.createElement("span", null, "\u25BE")), /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      title: t.live_next_track + ' ]',
+      disabled: !!liveSwitching || liveCurIndex >= liveTrackList.items.length - 1,
+      onClick: () => liveStepTrack(1)
+    }, "\u25B6"))), /*#__PURE__*/React.createElement("div", {
       className: "row"
     }, /*#__PURE__*/React.createElement("div", {
       className: "lang-switch"
@@ -5168,7 +5354,74 @@ function App() {
     }, t['cue_' + m]))), /*#__PURE__*/React.createElement("button", {
       className: "ghost",
       onClick: () => setLiveMode(false)
-    }, "\u2715 ", t.live_exit, " ", /*#__PURE__*/React.createElement("kbd", null, "Esc")))), /*#__PURE__*/React.createElement("div", {
+    }, "\u2715 ", t.live_exit, " ", /*#__PURE__*/React.createElement("kbd", null, "Esc")))), liveTracksOpen && /*#__PURE__*/React.createElement("div", {
+      className: "live-tracks"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "live-tracks-head"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "live-label"
+    }, liveTrackList.source === 'project' ? `${t.live_tracks_project}: ${project.name}` : t.live_tracks_library), /*#__PURE__*/React.createElement("input", {
+      autoFocus: true,
+      type: "text",
+      placeholder: t.live_tracks_filter,
+      value: liveTrackFilter,
+      onChange: e => setLiveTrackFilter(e.target.value),
+      onKeyDown: e => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          liveTrackFilter ? setLiveTrackFilter('') : setLiveTracksOpen(false);
+        }
+        if (e.key === 'Enter') {
+          const f = liveTrackFilter.trim().toLowerCase();
+          const first = liveTrackList.items.find(x => !f || (x.name || '').toLowerCase().includes(f) || (x.sub || '').toLowerCase().includes(f));
+          if (first) liveOpenTrack(first);
+        }
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "hint",
+      style: {
+        margin: 0
+      }
+    }, t.live_tracks_hint)), liveTrackList.items.length === 0 && /*#__PURE__*/React.createElement("div", {
+      className: "hint"
+    }, t.drawer_library_empty), /*#__PURE__*/React.createElement("div", {
+      className: "live-tracks-list"
+    }, (() => {
+      const f = liveTrackFilter.trim().toLowerCase();
+      let lastGroup = null;
+      return liveTrackList.items.map((x, i) => {
+        if (f && !(x.name || '').toLowerCase().includes(f) && !(x.sub || '').toLowerCase().includes(f)) return null;
+        const head = x.group != null && x.group !== lastGroup ? /*#__PURE__*/React.createElement("div", {
+          key: 'g' + i,
+          className: "live-tracks-group"
+        }, x.group) : null;
+        lastGroup = x.group;
+        const cur = i === liveCurIndex;
+        return /*#__PURE__*/React.createElement(React.Fragment, {
+          key: x.key
+        }, head, /*#__PURE__*/React.createElement("button", {
+          className: 'live-track-item' + (cur ? ' on' : ''),
+          disabled: !!liveSwitching,
+          onClick: () => liveOpenTrack(x)
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "num"
+        }, i + 1), x.fav && /*#__PURE__*/React.createElement("span", {
+          style: {
+            color: '#ffb84f'
+          }
+        }, "\u2605"), /*#__PURE__*/React.createElement("span", {
+          className: "nm"
+        }, x.name), x.sub && /*#__PURE__*/React.createElement("span", {
+          className: "time"
+        }, x.sub), cur && /*#__PURE__*/React.createElement("span", {
+          className: "time",
+          style: {
+            color: 'var(--accent2)'
+          }
+        }, player.playing ? t.scene_on_air : t.live_loaded)));
+      });
+    })())), /*#__PURE__*/React.createElement("div", {
       className: "live-stage"
     }, /*#__PURE__*/React.createElement("div", {
       className: "live-now"

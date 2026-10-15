@@ -583,6 +583,21 @@
   .live-title { font-family: var(--font-title); font-weight: 700; font-size: 16px; letter-spacing: 1px; display: flex; gap: 12px; align-items: baseline; }
   .live-title .time { color: var(--muted); font-family: var(--mono); font-size: 12px; }
   .live-stage { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+  .live-track { display: flex; align-items: center; gap: 4px; font-family: var(--font); font-weight: 600; letter-spacing: 0; }
+  .live-track button { padding: 6px 10px; font-size: 13px; }
+  .live-track-name { display: flex; align-items: center; gap: 8px; max-width: min(52vw, 560px); }
+  .live-track-name .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live-track-name.on { border-color: var(--accent); color: var(--accent); }
+  .live-tracks { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; max-height: 46vh; }
+  .live-tracks-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .live-tracks-head input { flex: 1; min-width: 180px; background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 10px; font-family: inherit; font-size: 13.5px; outline: none; }
+  .live-tracks-list { overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; align-content: start; }
+  .live-tracks-group { grid-column: 1 / -1; font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+  .live-track-item { display: flex; align-items: center; gap: 8px; text-align: left; padding: 10px 12px; font-size: 14px; }
+  .live-track-item .num { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 18px; }
+  .live-track-item .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .live-track-item.on { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
   .live-now, .live-next {
     border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 22px 26px;
     background: var(--panel); min-height: 150px; position: relative;
@@ -635,6 +650,6 @@
     }
   });
 </script>
-<script defer src="app.js?v=0f6bc47a62"></script>
+<script defer src="app.js?v=6944eb393d"></script>
 </body>
 </html>
