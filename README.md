@@ -27,7 +27,7 @@ automatically react to gameplay. It helps you work with existing tracks rather t
 generating new music.
 
 <p align="center">
-  <img src="demo_classic_zoom.gif" alt="Musloop demo: select a section, start a loop, then cue the next section with the Next button" width="800">
+  <img src="assets/demo_classic_zoom.gif" alt="Musloop demo: select a section, start a loop, then cue the next section with the Next button" width="800">
 </p>
 <p align="center"><em>30-second silent demo: select → loop → cue → transition.</em></p>
 
