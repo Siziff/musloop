@@ -35,35 +35,54 @@ generating new music.
 collection. Runs locally and works offline after the required dependencies and
 models have been downloaded. This is a personal passion project, shared freely.
 
-[Quick start](#quick-start) · [Your first loop](#your-first-loop) · [Features](#features) · [Under the hood](#under-the-hood)
+[What's new](#whats-new) · [Quick start](#quick-start) · [Your first loop](#your-first-loop) · [Features](#features) · [Under the hood](#under-the-hood)
 
 **Read about the project:** [Article on Habr (in Russian)](https://habr.com/ru/articles/1086674/).
 
-## `dev` branch — what's new vs `main`
+## What's new
 
-> This is the development branch. Everything below is **not yet in `main`**; the list
-> is the changelog for the next release. Try it: `git checkout dev`, then `./run.sh`.
+<p align="center">
+  <img src="assets/demo-live.gif" alt="Live mode: scene pads cue on the phrase, the track list switches to another track without leaving Live" width="800">
+</p>
+<p align="center"><em>Live mode: play → cue a scene → pick another track (T) → it fades in and keeps playing → next track (]).</em></p>
 
-| Feature | Status | Where |
-|---|---|---|
-| **Audition the seam** — ⟲♪ / →♪ on part chips: hear the loop seam or the transition into the next part in ~6 s; snippets highlighted on the waveform | ✅ done | player `previewSeam` / `previewTransition` |
-| **Cue any part** — click a part (or press **1–9, 0**) while playing to queue a transition into it; lands **at loop end / at phrase / right away**; cancel with Backspace; status shows `→ target · ETA` | ✅ done | player `cue` / `cancelCue` / `pendingTarget` |
-| **Scenes** — save the player state (part, layers, speed, crossfade, reverb, cue mode) as a named scene; **Shift+1–9** hotkeys; stored in the track markup and `*.musslop.json` | ✅ done | Scenes panel |
-| **Live mode** (`L`) — full-screen session desk: now / next with ETA, part & scene pads, Next, Cancel, **Fade out** (`F`); editing locked | ✅ done | Player → “Live mode” |
-| **Projects (set lists)** — groups of track / scene items with notes for a whole session or level; persisted server-side; items open in one click | ✅ done | Side drawer → Project, `/api/projects` |
-| **Side drawer (☰)** — Projects · Library/History · **Music folders**: point musslop at a folder on disk, every audio file inside is listed; a click imports it once and opens it | ✅ done | `/api/folders`, `/api/folders/scan`, `/api/folders/import` |
-| **Scenes across tracks** — scenes of every track are listed under the current one; clicking (or Shift+hotkey) loads that track and starts the scene | ✅ done | `/api/scenes` |
-| One transition switch — *at loop end / at phrase / right away* applies to Next, part clicks, keys and scenes (the old “loop end / phrase end” toggle is merged into it) | ✅ done | Player |
-| **Export with `manifest.json`** — loop points, downbeats, phrase transition points, stingers, scenes, optional `*_tail.wav` | ✅ done | `/api/export`, `examples/godot` |
-| Godot 4 example — `MusslopPlayer.gd` plays the export with natural / soon / now cues | ✅ done | `examples/godot` |
-| **Meter (time signature) detection** — 3 vs 4 beats per bar from bass / accents / chord changes / bar repetition (fast engine) or from the neural downbeats (SongFormer, All-In-One); shown as a badge next to BPM with confidence | ✅ done | `analysis.estimate_meter`, `meter` in `/api/analyze` |
-| **Manual meter** — badge menu: *As in the original (auto, recommended)* or 2/4 · 3/4 · 4/4 · 5/4 · 6/8 · 7/4; bar grid updates instantly, **shift the downbeat** by a beat, optional *re-split parts for this meter*; saved in markup, `*.musslop.json` and `manifest.json` (`beats_per_bar`, `phrase_bars`) | ✅ done | Structure → Meter badge, `?beats_per_bar=`, `/api/meter` |
-| **Live: track switching** — ◀ track ▾ ▶ in the Live header and a searchable track list (`T`); `[` / `]` previous / next track. Uses the open project's set-list order, otherwise Library ★ + History. The current track fades out while the next one loads, and playback continues on the new track (its project scene, or part 1) | ✅ done | Live mode |
-| Scenes panel moved below the player; short header tagline | ✅ done | UI |
-| Install scripts: pinned, verified versions (torch 2.6.0, SongFormer commit, madmom commit), Python range checks (3.10–3.13; All-In-One 3.10–3.12), Windows `py` launcher, Intel-Mac / Rosetta detection | ✅ done | `setup*.sh`, `setup*.bat` |
-| Phone remote (LAN / QR) | 🔜 planned separately | — |
+**Run a whole session from one screen**
+- **Live mode** (`L`) — a full-screen desk for the table: what's playing now, what comes next
+  and in how many seconds, big pads for parts and scenes, **Next**, **Cancel** and **Fade out** (`F`).
+  Editing is locked so nothing breaks mid-session.
+- **Switch tracks inside Live** — ◀ / ▶ (or `[` / `]`) step through your set list, `T` opens a
+  searchable track list. The current track fades out while the next one loads, and the music
+  keeps going on the new track.
+- **Scenes** — save a moment of the game (*Exploration*, *Something is close*, *Ambush*) as a
+  scene: which part loops, layers, speed, reverb and how to enter it. Fire them with
+  **Shift+1–9**, from any track.
+- **Projects (set lists)** — group tracks and scenes for a session or a game level, with notes,
+  and open any of them in one click.
+- **Music folders** — point musslop at a folder on your disk and every track inside is one
+  click away (☰ → Folders).
 
-When merging into `main`, move the finished rows into the release notes and clear this section.
+**Transitions that land where you want**
+- **Cue any part** — click a part or press **1–9, 0** while music plays. Pick when it switches:
+  **at loop end**, **at phrase** (next 4/8 bars) or **right away**. **Backspace** cancels.
+- **Audition the seam** — ⟲♪ plays the loop seam and →♪ the transition into the next part, so
+  you can check a boundary in 6 seconds instead of waiting for the whole loop.
+
+**Meter (time signature)**
+- musslop now **detects the meter** (3/4 vs 4/4) instead of assuming 4/4 for every track; it is
+  shown next to the BPM. Waltzes and other 3/4 tracks get a correct bar grid, loops and phrases.
+- Not right? Click the badge: choose **2/4 … 7/4, 6/8**, or **shift the downbeat** by a beat. The
+  original (detected) meter stays the recommended default, and your choice is saved with the track.
+
+**For game developers**
+- **Loop export with `manifest.json`** — loop points, bar lines, phrase transition points,
+  stingers, scenes and the meter, ready for your engine. See the [Godot 4 example](examples/godot).
+- **Foundry VTT export** — Files → Foundry VTT (zip) gives you a ready-to-import playlist.
+
+**Smaller things**
+- A clearer page: Scenes now sit below the player, and a shorter header.
+- Install scripts check your Python version and use tested library versions, so setup breaks
+  less often. They also explain what to do on an unsupported system (for example, Intel Macs
+  for the AI engines).
 
 ## Two ways to use it
 
@@ -85,7 +104,7 @@ When merging into `main`, move the finished rows into the release notes and clea
 | **Audition the seam** | ⟲♪ plays the last seconds of a part and then its start; →♪ plays the end of a part into the next one — check a boundary in 6 seconds instead of a whole loop |
 | **Cue any part** | while playing, click any part — or press its key **1–9, 0** (parts 1–10) — to queue a transition into it — **at loop end**, **at phrase** (next 4/8-bar boundary) or **right away** (short crossfade); cancel with Backspace |
 | **Scenes** | save the player state (part + layers + speed/crossfade/reverb + how to enter) as a named scene with a hotkey Shift+1–9: *Empty corridor*, *Something is close*, *Ambush*, *Aftermath* — all from one track |
-| **Live mode** | full-screen desk for the session (key `L`): big current/next display, scene pads, ETA of the transition, fade-out — editing is locked |
+| **Live mode** | full-screen desk for the session (key `L`): big current/next display, scene pads, ETA of the transition, fade-out, switch tracks without leaving it (◀ ▶, `[` `]`, `T` for the list) — editing is locked |
 | **Projects (set lists)** | group tracks and scenes for a whole session or level (*Arrival → Inside → Finale*), with notes; open any item in one click |
 | **Meter** | time signature detected automatically (3 vs 4 beats; neural engines read it from their downbeats) and shown next to BPM; override it (2/4 … 7/4, 6/8) and shift the downbeat if the bar grid is off — the original meter stays the recommended default |
 | **Loop export** | ZIP of WAV sections plus `manifest.json` (loop points, phrase transition points, tails, stingers, scenes) — see the [Godot example](examples/godot) |
