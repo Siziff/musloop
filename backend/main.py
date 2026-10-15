@@ -761,7 +761,10 @@ def delete_project(pid: str):
 @app.get("/api/analyze/{track_id}")
 def analyze_track(track_id: str,
                   n_segments: int | None = Query(None, ge=2, le=24),
-                  engine: str = Query("fast")):
+                  engine: str = Query("fast"),
+                  beats_per_bar: int | None = Query(None, ge=2, le=7)):
+    """beats_per_bar: None = auto-detect the meter (recommended), otherwise a
+    manual override (2..7 beats per bar)."""
     track = TRACKS.get(track_id)
     if not track:
         raise HTTPException(404, "Track not found")
@@ -772,16 +775,18 @@ def analyze_track(track_id: str,
     if engine == "deep":
         if not DEEP_AVAILABLE:
             raise HTTPException(503, "Deep analysis unavailable: install All-In-One (setup-ai-allin1.sh; Windows — WSL2 only)")
-        result = _deep_analyze(track)
+        result = _deep_analyze(track, beats_per_bar)
     elif engine == "songformer":
         if not SONGFORMER_AVAILABLE:
             raise HTTPException(503, "SongFormer unavailable: run setup-ai-songformer.sh (Windows: setup-ai-songformer.bat) and restart the server")
-        result = _songformer_analyze(track)
+        result = _songformer_analyze(track, beats_per_bar)
     else:
-        result = analyze(track["wav"], n_segments=n_segments)
-    log.info("analyze: %s done in %.1fs, %d parts, tempo %.1f",
+        result = analyze(track["wav"], n_segments=n_segments,
+                         beats_per_bar=beats_per_bar)
+    log.info("analyze: %s done in %.1fs, %d parts, tempo %.1f, meter %s/%s",
              track_id, _time.time() - _t0, len(result["segments"]),
-             result.get("tempo") or 0)
+             result.get("tempo") or 0, result.get("beats_per_bar"),
+             (result.get("meter") or {}).get("source"))
 
     result["track_id"] = track_id
     result["name"] = track["name"]
@@ -824,19 +829,19 @@ def _run_engine(track: dict, cache_key: str, script: str, py: str,
     return cached
 
 
-def _deep_analyze(track: dict) -> dict:
+def _deep_analyze(track: dict, beats_per_bar: int | None = None) -> dict:
     """allin1 in a separate venv (subprocess); the result is cached in meta."""
     cached = _run_engine(track, "deep_raw", "deep_analyze.py", DEEP_PY)
-    result = analyze_deep_merge(track["wav"], cached)
+    result = analyze_deep_merge(track["wav"], cached, beats_per_bar)
     result["engine"] = "deep"
     return result
 
 
-def _songformer_analyze(track: dict) -> dict:
+def _songformer_analyze(track: dict, beats_per_bar: int | None = None) -> dict:
     """SongFormer + Beat This! in its own venv; merged with our loop metrics."""
     cached = _run_engine(track, "songformer_raw", "songformer_analyze.py",
                          SONGFORMER_PY, {"SONGFORMER_SRC": SONGFORMER_SRC})
-    result = analyze_deep_merge(track["wav"], cached)
+    result = analyze_deep_merge(track["wav"], cached, beats_per_bar)
     result["engine"] = "songformer"
     return result
 
@@ -1117,6 +1122,15 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
         tails = bool(body.get("tails"))
         target = str(body.get("target") or "generic")   # generic | foundry
         crossfade = float(body.get("crossfade") or 0.0)
+    meter_bpb, phrase_bars = 4, 4
+    if isinstance(body, dict):
+        try:
+            meter_bpb = int(body.get("beats_per_bar") or 4)
+            phrase_bars = int(body.get("phrase_bars") or 4)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "beats_per_bar / phrase_bars must be integers")
+        if not 1 <= meter_bpb <= 16 or not 1 <= phrase_bars <= 32:
+            raise HTTPException(400, "beats_per_bar / phrase_bars out of range")
     if not segments:
         raise HTTPException(400, "Empty segment list")
     if target == "foundry":
@@ -1181,7 +1195,7 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
             if downbeats:
                 bars = [round(float(d) - start, 4) for d in downbeats if start <= float(d) < end]
                 entry["downbeats_sec"] = bars
-                entry["transition_points_sec"] = bars[::4] if bars else []
+                entry["transition_points_sec"] = bars[::phrase_bars] if bars else []
             if tails:
                 ta, tb = b, min(len(y), b + int(TAIL_SEC * sr))
                 if tb - ta > sr // 20:
@@ -1198,6 +1212,8 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
             "version": 1,
             "track": track.get("name"),
             "bpm": tempo,
+            "beats_per_bar": meter_bpb,
+            "phrase_bars": phrase_bars,
             "sample_rate": sr,
             "channels": int(y.shape[1]),
             "loops": manifest_loops,
@@ -1217,6 +1233,8 @@ def export_loops(track_id: str, body: dict | list = Body(...)):
             ],
             "notes": (
                 "loop_start_sample/loop_end_sample are relative to the file. "
+                "downbeats_sec are bar starts (beats_per_bar beats per bar); "
+                "transition_points_sec are every phrase_bars-th bar. "
                 "cue: natural = switch at loop end, soon = at the next transition point, "
                 "now = crossfade immediately. tail_file (if present) is the audio that "
                 "follows the loop end in the original track — play it over the next loop's start."

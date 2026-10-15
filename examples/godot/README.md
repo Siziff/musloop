@@ -39,7 +39,7 @@ $Music.fade_out(2.0)
 | `loops[i].file` | WAV file for the section |
 | `loops[i].loop` | `false` for build-ups — play once, then move on |
 | `loops[i].loop_start_sample` | where a repeat restarts (0 unless a loop-start marker was set) |
-| `loops[i].transition_points_sec` | phrase boundaries inside the loop (every 4 bars) for `SOON` cues |
+| `loops[i].transition_points_sec` | phrase boundaries inside the loop (every `phrase_bars` bars, default 4) for `SOON` cues; bar length is `beats_per_bar` |
 | `loops[i].tail_file` | the audio right after the loop end — play it over the next loop's start |
 | `loops[i].stinger` | `cymbal` / `boom` / `riser` — an accent you may play on entry |
 | `scenes[]` | musslop scenes: `loop_index`, `cue`, `layers`, `hotkey` |

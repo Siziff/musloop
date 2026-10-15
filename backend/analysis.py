@@ -70,6 +70,150 @@ def _estimate_downbeat_phase(onset_env: np.ndarray, beat_frames: np.ndarray,
     return int(np.argmax(scores))
 
 
+# --- Meter (time signature) ---------------------------------------------------
+# Supported bar lengths in beats. Auto-detection decides between duple (4) and
+# triple (3) grouping: 2/4 is folded into 4 (two bars of 2/4 loop the same way
+# as one of 4/4) and 6/8 counted in eighths shows up as 3 (or as 2 when the
+# beat tracker locks onto dotted quarters). 5 and 7 are manual-only.
+METERS = (2, 3, 4, 5, 6, 7)
+AUTO_METERS = (3, 4)
+
+
+def _zs(x: np.ndarray) -> np.ndarray:
+    x = np.asarray(x, dtype=float)
+    s = float(x.std())
+    return (x - float(x.mean())) / s if s > 1e-9 else np.zeros_like(x)
+
+
+def beat_accents(y: np.ndarray, sr: int, beat_frames: np.ndarray,
+                 onset_env: np.ndarray | None = None) -> np.ndarray:
+    """Per-beat "downbeat-ness" (z-scored), the evidence for bar starts:
+      * low-band onset (kick / bass notes usually land on the one),
+      * full-band onset strength (general accent),
+      * harmonic change (chords tend to change at bar lines).
+    Also used by the UI to pick the phase when the user changes the meter."""
+    n = len(beat_frames)
+    if n < 2:
+        return np.zeros(n)
+    if onset_env is None:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
+    mel = librosa.feature.melspectrogram(y=y, sr=sr, hop_length=HOP, n_mels=64, fmax=8000)
+    low = librosa.onset.onset_strength(S=librosa.power_to_db(mel[:6]), sr=sr)  # < ~200 Hz
+    L = min(len(onset_env), len(low))
+
+    def at(env, fr):
+        # max in a +-2 frame window: beat trackers are a few ms off
+        fr = np.clip(fr, 0, L - 1)
+        return np.array([env[max(0, f - 2):f + 3].max() for f in fr])
+
+    acc = at(onset_env[:L], beat_frames)
+    bass = at(low[:L], beat_frames)
+    chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=HOP)
+    fr = librosa.util.fix_frames(beat_frames, x_min=0, x_max=chroma.shape[1] - 1)
+    cs = librosa.util.sync(chroma, fr, aggregate=np.median)
+    cs = cs / np.maximum(np.linalg.norm(cs, axis=0, keepdims=True), 1e-8)
+    # fix_frames prepends frame 0: column k+1 starts at beat k
+    seg = cs[:, 1:n + 1] if cs.shape[1] >= n + 1 else cs[:, -n:]
+    prev = np.concatenate([seg[:, :1], seg[:, :-1]], axis=1)
+    hchange = 1.0 - np.sum(seg * prev, axis=0)
+    hchange = np.pad(hchange, (0, max(0, n - len(hchange))))[:n]
+    return _zs(1.0 * _zs(bass) + 0.6 * _zs(acc) + 0.8 * _zs(hchange))
+
+
+def best_phase(accents: np.ndarray, beats_per_bar: int) -> int:
+    """Phase (0..bpb-1) whose beats carry the strongest accents."""
+    if len(accents) < beats_per_bar:
+        return 0
+    return int(np.argmax([accents[p::beats_per_bar].mean() for p in range(beats_per_bar)]))
+
+
+def estimate_meter(accents: np.ndarray, feats: np.ndarray | None = None) -> dict:
+    """Heuristic time-signature estimate (3 vs 4 beats per bar).
+
+    Two independent cues, both in "beats":
+      1. Accent pattern: how well the per-beat accents separate into one
+         strong beat per bar for period M (contrast of the best phase,
+         t-statistic so that periods with fewer "on" beats aren't favoured).
+      2. Repetition: self-similarity of beat-synchronous chroma/timbre at
+         lags that are multiples of 3 but not 4 (3, 9, 15) vs. multiples of
+         4 but not 3 (4, 8, 16). Music repeats in whole bars.
+    The prior favours 4/4 (by far the most common in the genres musslop is
+    used for): 3 wins only with a clear margin."""
+    n = len(accents)
+    out = {"beats_per_bar": 4, "confidence": 0.0, "source": "heuristic",
+           "scores": {}}
+    if n < 24:
+        return out
+
+    def contrast(M):
+        best = -np.inf
+        for p in range(M):
+            on = accents[p::M]
+            off = np.delete(accents, np.arange(p, n, M))
+            if len(on) < 4 or len(off) < 4:
+                continue
+            pooled = np.sqrt((on.var() / len(on)) + (off.var() / len(off))) + 1e-9
+            best = max(best, (on.mean() - off.mean()) / pooled)
+        return float(best)
+
+    acc = {M: contrast(M) for M in AUTO_METERS}
+
+    rep = {3: 0.0, 4: 0.0}
+    if feats is not None and feats.shape[1] > 40:
+        F = feats / np.maximum(np.linalg.norm(feats, axis=0, keepdims=True), 1e-8)
+        def lag_sim(k):
+            return float(np.mean(np.sum(F[:, :-k] * F[:, k:], axis=0))) if F.shape[1] > k + 8 else 0.0
+        base = np.mean([lag_sim(k) for k in (1, 2, 5, 7, 10, 11, 13, 14)])
+        rep[3] = float(np.mean([lag_sim(k) for k in (3, 9, 15)]) - base)
+        rep[4] = float(np.mean([lag_sim(k) for k in (4, 8, 16)]) - base)
+
+    # combine: accent t-stats are O(1..10), repetition deltas O(0.01..0.2)
+    s3 = 0.5 * acc[3] + 25.0 * rep[3]
+    s4 = 0.5 * acc[4] + 25.0 * rep[4]
+    margin = s3 - s4
+    PRIOR = 0.6  # 4/4 prior, in score units
+    bpb = 3 if margin > PRIOR else 4
+    conf = float(1.0 / (1.0 + np.exp(-abs(margin - PRIOR) / 0.8)))  # 0.5..1
+    out.update(beats_per_bar=bpb, confidence=round(conf, 3),
+               scores={"accent_3": round(acc[3], 3), "accent_4": round(acc[4], 3),
+                       "repeat_3": round(rep[3], 4), "repeat_4": round(rep[4], 4)})
+    return out
+
+
+def meter_from_downbeats(beats: list, downbeats: list) -> dict | None:
+    """Meter implied by a neural beat/downbeat tracker: the most common
+    number of beats between consecutive downbeats, with the share of bars
+    that agree as the confidence."""
+    if len(beats) < 8 or len(downbeats) < 4:
+        return None
+    b = np.asarray(beats, dtype=float)
+    d = np.asarray(downbeats, dtype=float)
+    counts = [int(((b >= d[i] - 1e-3) & (b < d[i + 1] - 1e-3)).sum()) for i in range(len(d) - 1)]
+    counts = [c for c in counts if c > 0]
+    if not counts:
+        return None
+    vals, freq = np.unique(counts, return_counts=True)
+    k = int(np.argmax(freq))
+    bpb = int(vals[k])
+    if bpb not in METERS:
+        return None
+    hist = {int(v): int(f) for v, f in zip(vals, freq)}
+    return {"beats_per_bar": bpb, "confidence": round(float(freq[k]) / len(counts), 3),
+            "source": "neural", "bar_histogram": hist}
+
+
+def grid_downbeats(beat_times: np.ndarray, beats_per_bar: int, phase: int) -> np.ndarray:
+    return np.asarray(beat_times)[phase % max(1, beats_per_bar)::beats_per_bar]
+
+
+def _neural_phase(beats: np.ndarray, downbeats: np.ndarray, M: int) -> int | None:
+    """Phase for meter M that hits the most neural downbeats."""
+    if len(downbeats) == 0 or len(beats) < M:
+        return None
+    is_db = np.array([np.min(np.abs(downbeats - t)) < 0.07 for t in beats])
+    return int(np.argmax([is_db[p::M].sum() for p in range(M)]))
+
+
 def _snap(value: float, grid: np.ndarray) -> float:
     """Nearest grid point."""
     if len(grid) == 0:
@@ -77,13 +221,17 @@ def _snap(value: float, grid: np.ndarray) -> float:
     return float(grid[np.argmin(np.abs(grid - value))])
 
 
-def analyze_deep_merge(path: str, deep: dict) -> dict:
+def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) -> dict:
     """Merge the allin1 result (boundaries/labels/beats from the neural net)
     with our metrics: loopability, build-up detection, snapping of tiny
     sections.
 
     allin1 is trained on Harmonix (human structure annotations) - we take
     its boundaries. Our addition is the loop-specific properties.
+
+    Meter: the neural downbeats imply it (beats per bar). With a user
+    override the bar grid is rebuilt from the neural beats, phase chosen to
+    hit the most neural downbeats.
     """
     y, sr = librosa.load(path, sr=SR, mono=True)
     duration = float(len(y) / sr)
@@ -94,6 +242,39 @@ def analyze_deep_merge(path: str, deep: dict) -> dict:
     downbeats = deep.get("downbeats") or []
     beats = deep.get("beats") or []
     tempo = _snap_tempo(float(deep.get("bpm") or 120.0))
+
+    b_arr = np.asarray(beats, dtype=float)
+    db_arr = np.asarray(downbeats, dtype=float)
+    override = beats_per_bar is not None and int(beats_per_bar) in METERS
+    assumed = bool(deep.get("downbeats_assumed")) and len(b_arr) >= 24
+    if assumed:
+        # beat model failed and the runner fell back to a fixed 4/4 grid:
+        # estimate meter + phase from the audio like the fast engine does
+        bf = librosa.time_to_frames(b_arr, sr=sr, hop_length=HOP)
+        acc_arr = beat_accents(y, sr, bf)
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=HOP)
+        fr = librosa.util.fix_frames(bf, x_min=0, x_max=chroma.shape[1] - 1)
+        detected = estimate_meter(acc_arr, librosa.util.sync(chroma, fr, aggregate=np.median))
+        accents = _round_list(acc_arr, 2)
+    else:
+        detected = meter_from_downbeats(beats, downbeats) or \
+            {"beats_per_bar": 4, "confidence": 0.0, "source": "neural"}
+        # per-beat accents for the UI (phase shifts / meter changes
+        # client-side): 1 on a neural downbeat, 0 elsewhere
+        accents = [1.0 if len(db_arr) and float(np.min(np.abs(db_arr - t))) < 0.07 else 0.0
+                   for t in b_arr] if len(b_arr) else []
+    bpb = int(beats_per_bar) if override else int(detected["beats_per_bar"])
+    phase = 0
+    if assumed:
+        phase = best_phase(np.asarray(accents), bpb)
+        downbeats = grid_downbeats(b_arr, bpb, phase).tolist()
+    elif override and bpb != detected["beats_per_bar"] and len(b_arr) >= bpb:
+        phase = _neural_phase(b_arr, db_arr, bpb) or 0
+        downbeats = grid_downbeats(b_arr, bpb, phase).tolist()
+    elif len(b_arr) and len(downbeats):
+        phase = int(np.argmin(np.abs(b_arr - float(downbeats[0])))) % max(1, bpb)
+    meter = _meter_info(bpb, detected, override)
+    meter["phase"] = int(phase)
 
     # sections: drop micro "start/end" (<2s), merge adjacent ones shorter than 4s
     raw = [s for s in deep.get("segments", [])
@@ -149,7 +330,7 @@ def analyze_deep_merge(path: str, deep: dict) -> dict:
                                          s["start"], s["end"], s["loopability"])
         s["loop"] = not s["transition"]
 
-    bar_dur = 60.0 / max(tempo, 1e-6) * 4
+    bar_dur = 60.0 / max(tempo, 1e-6) * bpb
     min_len = max(4.0, bar_dur * 2)
     return {
         "duration": duration,
@@ -161,6 +342,9 @@ def analyze_deep_merge(path: str, deep: dict) -> dict:
         "n_max": min(24, max(1, int(duration // min_len))),
         "fallback": False,
         "engine": "deep",
+        "beats_per_bar": bpb,
+        "meter": meter,
+        "beat_accents": accents,
     }
 
 
@@ -173,8 +357,28 @@ def _snap_tempo(tempo: float) -> float:
     return float(tempo)
 
 
-def analyze(path: str, n_segments: int | None = None) -> dict:
-    """Full track analysis. Returns a dict for the JSON response."""
+def _meter_info(chosen: int, detected: dict, override: bool) -> dict:
+    return {
+        "beats_per_bar": int(chosen),
+        "detected": int(detected.get("beats_per_bar", 4)),
+        "confidence": detected.get("confidence", 0.0),
+        "source": "manual" if override else detected.get("source", "heuristic"),
+        "detected_source": detected.get("source", "heuristic"),
+        "scores": detected.get("scores") or detected.get("bar_histogram") or {},
+    }
+
+
+def _round_list(a, nd=3) -> list:
+    return [round(float(x), nd) for x in a]
+
+
+def analyze(path: str, n_segments: int | None = None,
+            beats_per_bar: int | None = None) -> dict:
+    """Full track analysis. Returns a dict for the JSON response.
+
+    beats_per_bar: None = detect the meter automatically (3 vs 4), otherwise
+    a user override (one of METERS) — the bar grid and the segmentation
+    window are built for that meter."""
     y, sr = librosa.load(path, sr=SR, mono=True)
     duration = float(len(y) / sr)
 
@@ -185,10 +389,28 @@ def analyze(path: str, n_segments: int | None = None) -> dict:
     tempo = _snap_tempo(float(np.atleast_1d(tempo)[0]))
     beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP)
 
-    # --- Downbeats (bars, 4/4 meter) ----------------------------------------
-    beats_per_bar = 4
-    phase = _estimate_downbeat_phase(onset_env, beat_frames, beats_per_bar)
-    downbeat_times = beat_times[phase::beats_per_bar]
+    # --- Meter + downbeats ----------------------------------------------------
+    accents = beat_accents(y, sr, beat_frames, onset_env) if len(beat_frames) >= 2 \
+        else np.zeros(len(beat_frames))
+    rep_feats = None
+    if len(beat_frames) >= 24:
+        _chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=HOP)
+        _fr = librosa.util.fix_frames(beat_frames, x_min=0, x_max=_chroma.shape[1] - 1)
+        rep_feats = librosa.util.sync(_chroma, _fr, aggregate=np.median)
+    detected = estimate_meter(accents, rep_feats)
+    override = beats_per_bar is not None and int(beats_per_bar) in METERS
+    beats_per_bar = int(beats_per_bar) if override else int(detected["beats_per_bar"])
+    if beats_per_bar == 4:
+        # 4/4: the original onset-based phase (the segmentation weights were
+        # tuned with it, see tools/tune.py)
+        phase = _estimate_downbeat_phase(onset_env, beat_frames, 4)
+    else:
+        phase = best_phase(accents, beats_per_bar)
+    downbeat_times = grid_downbeats(beat_times, beats_per_bar, phase)
+    meter = _meter_info(beats_per_bar, detected, override)
+    meter["phase"] = int(phase)
+    meter_out = {"beats_per_bar": beats_per_bar, "meter": meter,
+                 "beat_accents": _round_list(accents, 2)}
 
     if len(beat_times) < 16:
         # fallback: uniform split if no rhythm was found
@@ -208,6 +430,7 @@ def analyze(path: str, n_segments: int | None = None) -> dict:
             "n_suggested": n,
             "n_max": min(24, max(1, int(duration // 8))),
             "fallback": True,
+            **meter_out,
         }
 
     # --- Beat-synchronous features: harmony + timbre + energy ---------------
@@ -432,6 +655,7 @@ def analyze(path: str, n_segments: int | None = None) -> dict:
         "n_suggested": n_suggested,
         "n_max": n_max,
         "fallback": False,
+        **meter_out,
     }
 
 

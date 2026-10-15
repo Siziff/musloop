@@ -92,7 +92,9 @@ def run_beats_fallback(audio: str):
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, trim=False)
     beats = [float(t) for t in librosa.frames_to_time(beat_frames, sr=sr)]
     bpm = float(np.atleast_1d(tempo)[0]) if np.size(tempo) else 120.0
-    downbeats = beats[::4]  # assume 4/4 — good enough as a fallback
+    # placeholder 4/4 grid: the server re-estimates the meter from audio
+    # when it sees "downbeats_assumed" (backend/analysis.py)
+    downbeats = beats[::4]
     return bpm, beats, downbeats
 
 
@@ -173,12 +175,14 @@ def main() -> None:
     print(f"device: {device}", file=sys.stderr)
 
     raw_segments = run_structure(audio, src_dir, sys.executable)
+    downbeats_assumed = False
     try:
         bpm, beats, downbeats = run_beats(audio, device)
     except Exception as e:
         print(f"Beat This! failed ({e}); falling back to librosa beats",
               file=sys.stderr)
         bpm, beats, downbeats = run_beats_fallback(audio)
+        downbeats_assumed = True
 
     # SongFormer splits sections into same-labeled subsections (by phrase) -
     # merge adjacent same-named ones: loops need large parts
@@ -194,6 +198,7 @@ def main() -> None:
         "bpm": bpm,
         "beats": beats,
         "downbeats": downbeats,
+        "downbeats_assumed": downbeats_assumed,
         "segments": merged,
         "segments_raw": [
             {"label": str(s["label"]), "start": float(s["start"]),
