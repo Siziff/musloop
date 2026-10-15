@@ -56,6 +56,10 @@ models have been downloaded. This is a personal passion project, shared freely.
 | One transition switch — *at loop end / at phrase / right away* applies to Next, part clicks, keys and scenes (the old “loop end / phrase end” toggle is merged into it) | ✅ done | Player |
 | **Export with `manifest.json`** — loop points, downbeats, phrase transition points, stingers, scenes, optional `*_tail.wav` | ✅ done | `/api/export`, `examples/godot` |
 | Godot 4 example — `MusslopPlayer.gd` plays the export with natural / soon / now cues | ✅ done | `examples/godot` |
+| **Meter (time signature) detection** — 3 vs 4 beats per bar from bass / accents / chord changes / bar repetition (fast engine) or from the neural downbeats (SongFormer, All-In-One); shown as a badge next to BPM with confidence | ✅ done | `analysis.estimate_meter`, `meter` in `/api/analyze` |
+| **Manual meter** — badge menu: *As in the original (auto, recommended)* or 2/4 · 3/4 · 4/4 · 5/4 · 6/8 · 7/4; bar grid updates instantly, **shift the downbeat** by a beat, optional *re-split parts for this meter*; saved in markup, `*.musslop.json` and `manifest.json` (`beats_per_bar`, `phrase_bars`) | ✅ done | Structure → Meter badge, `?beats_per_bar=`, `/api/meter` |
+| Scenes panel moved below the player; short header tagline | ✅ done | UI |
+| Install scripts: pinned, verified versions (torch 2.6.0, SongFormer commit, madmom commit), Python range checks (3.10–3.13; All-In-One 3.10–3.12), Windows `py` launcher, Intel-Mac / Rosetta detection | ✅ done | `setup*.sh`, `setup*.bat` |
 | Phone remote (LAN / QR) | 🔜 planned separately | — |
 
 When merging into `main`, move the finished rows into the release notes and clear this section.
@@ -82,6 +86,7 @@ When merging into `main`, move the finished rows into the release notes and clea
 | **Scenes** | save the player state (part + layers + speed/crossfade/reverb + how to enter) as a named scene with a hotkey Shift+1–9: *Empty corridor*, *Something is close*, *Ambush*, *Aftermath* — all from one track |
 | **Live mode** | full-screen desk for the session (key `L`): big current/next display, scene pads, ETA of the transition, fade-out — editing is locked |
 | **Projects (set lists)** | group tracks and scenes for a whole session or level (*Arrival → Inside → Finale*), with notes; open any item in one click |
+| **Meter** | time signature detected automatically (3 vs 4 beats; neural engines read it from their downbeats) and shown next to BPM; override it (2/4 … 7/4, 6/8) and shift the downbeat if the bar grid is off — the original meter stays the recommended default |
 | **Loop export** | ZIP of WAV sections plus `manifest.json` (loop points, phrase transition points, tails, stingers, scenes) — see the [Godot example](examples/godot) |
 
 **Results depend on the source track.** Automatic boundaries are a starting point,
@@ -158,6 +163,12 @@ Windows:
 setup-ai-songformer.bat   # needs git in PATH; ~15 min, ~4 GB
 ```
 
+The AI engines need **Python 3.10–3.13** (3.12 recommended; All-In-One: 3.10–3.12),
+because PyTorch 2.6 / NATTEN 0.17 have no builds for newer versions. The scripts pick
+a suitable interpreter automatically (`python3.12`, `py -3.12`, …) or take
+`PYTHON=/path/to/python3.12`. On macOS the engines need an Apple Silicon Mac
+(native terminal, not Rosetta); Intel Macs can use the base app only.
+
 The All-In-One engine is not supported natively on Windows (its NATTEN
 dependency needs a source build); use WSL2 with the Linux script if you
 need it. SongFormer covers structure analysis fully, and the stem
@@ -200,7 +211,8 @@ plus classic MIR: Ellis 2007 (beat tracking), Foote 2000 (novelty segmentation).
 | Endpoint | Purpose |
 |---|---|
 | `POST /api/upload` · `POST /api/import_url` | file upload / yt-dlp import |
-| `GET /api/analyze/{id}?engine=fast\|deep` | structure analysis |
+| `GET /api/analyze/{id}?engine=fast\|deep\|songformer&beats_per_bar=` | structure analysis; response includes `beats_per_bar` and `meter` (detected, confidence, source); `beats_per_bar` (2–7) overrides the meter |
+| `POST /api/meter/{id}` | detect the meter for an existing beat grid without re-segmenting (body: `{beats, downbeats, engine}`) |
 | `POST /api/stems/{id}` · `GET /api/stems/{id}/{stem}` | Demucs 4-stem split |
 | `POST /api/export/{id}` | zip of full-quality loop WAVs + `manifest.json` (body: `{segments, scenes, tempo, downbeats, tails}`) |
 | `GET/POST /api/markup/{id}` | segment markup + scenes persistence |
