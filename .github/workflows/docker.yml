@@ -17,9 +17,14 @@ jobs:
         run: docker image ls musslop:ci --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Start container
         run: |
-          docker run -d --name m -p 8801:8801 -v musslop-ci:/data musslop:ci
+          echo "::notice title=images::$(docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | tr '\n' ' ')"
+          if ! out=$(docker run -d --name m -p 8801:8801 -v musslop-ci:/data musslop:ci 2>&1); then
+            echo "::error title=docker run::$(echo "$out" | tr '\n' ' ')"; exit 1
+          fi
           for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
-          curl -fs localhost:8801/api/health
+          if ! curl -fs localhost:8801/api/health; then
+            echo "::error title=container log::$(docker logs m 2>&1 | tail -25 | tr '\n' '|')"; exit 1
+          fi
       - name: Test track (two 32 s sections at 120 BPM, generated with the image's ffmpeg)
         run: |
           docker exec m ffmpeg -loglevel error \
