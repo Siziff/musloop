@@ -1,0 +1,129 @@
+{
+  "track": "Splendorius — Oblivion Roses",
+  "tempo": 76,
+  "beats_per_bar": 4,
+  "meter_manual": false,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 12.901,
+      "label": "A1",
+      "group": "A",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.72
+    },
+    {
+      "start": 12.901,
+      "end": 25.834,
+      "label": "B1",
+      "group": "B",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.75
+    },
+    {
+      "start": 25.834,
+      "end": 51.31,
+      "label": "C1",
+      "group": "C",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.64
+    },
+    {
+      "start": 51.31,
+      "end": 64.091,
+      "label": "D1",
+      "group": "D",
+      "loop": false,
+      "transition": true,
+      "loopability": 0.92
+    },
+    {
+      "start": 64.091,
+      "end": 89.664,
+      "label": "E1",
+      "group": "E",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.82
+    },
+    {
+      "start": 89.664,
+      "end": 115.329,
+      "label": "C2",
+      "group": "C",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.9
+    },
+    {
+      "start": 115.329,
+      "end": 128.01,
+      "label": "D2",
+      "group": "D",
+      "loop": false,
+      "transition": true,
+      "loopability": 0.7
+    },
+    {
+      "start": 128.01,
+      "end": 153.654,
+      "label": "E2",
+      "group": "E",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.76
+    },
+    {
+      "start": 153.654,
+      "end": 179.297,
+      "label": "F1",
+      "group": "F",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.62
+    },
+    {
+      "start": 179.297,
+      "end": 192.134,
+      "label": "E3",
+      "group": "E",
+      "loop": true,
+      "transition": false,
+      "loopability": 0.72
+    },
+    {
+      "start": 192.134,
+      "end": 206.551,
+      "label": "Outro",
+      "loop": false,
+      "transition": true
+    }
+  ],
+  "scenes": [
+    {
+      "id": "explore",
+      "name": "Exploration",
+      "segIndex": 2,
+      "layers": null,
+      "rate": 1,
+      "crossfade": 0.4,
+      "reverb": 0,
+      "cueMode": "natural",
+      "hotkey": "1"
+    },
+    {
+      "id": "tension",
+      "name": "Something is close",
+      "segIndex": 5,
+      "layers": null,
+      "rate": 1,
+      "crossfade": 0.4,
+      "reverb": 0.2,
+      "cueMode": "soon",
+      "hotkey": "2"
+    }
+  ]
+}

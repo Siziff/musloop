@@ -35,7 +35,7 @@ generating new music.
 collection. Runs locally and works offline after the required dependencies and
 models have been downloaded. This is a personal passion project, shared freely.
 
-[What's new](#whats-new) · [Quick start](#quick-start) · [Your first loop](#your-first-loop) · [Features](#features) · [Under the hood](#under-the-hood)
+[What's new](#whats-new) · [Quick start](#quick-start) · [Your first loop](#your-first-loop) · [Example](#example-one-track-step-by-step) · [Features](#features) · [Under the hood](#under-the-hood)
 
 **Read about the project:** [Article on Habr (in Russian)](https://habr.com/ru/articles/1086674/).
 
@@ -163,6 +163,81 @@ ffmpeg is downloaded automatically with the dependencies — no manual install n
    comes next and when, scene pads, **Next**, **Cancel** and **Fade out** (`F`). Switch tracks
    right there: **◀ / ▶** or `[` / `]` step through the open project (or your library), `T`
    opens a searchable track list. Editing shortcuts are disabled while Live is on; `Esc` leaves it.
+
+## Example: one track, step by step
+
+**Track:** Splendorius — *Oblivion Roses* (≈ 3:27, 76 BPM, 4/4). The audio is not included;
+use your own copy, or any track.
+
+What musslop produced with the fast analysis (no AI engine), after a couple of manual tweaks:
+
+| Part | Time | Length | Behaviour | Loop quality |
+|---|---|---|---|---|
+| A1 | 0:00.0–0:12.9 | 13 s | loops | 72% |
+| B1 | 0:12.9–0:25.8 | 13 s | loops | 75% |
+| C1 | 0:25.8–0:51.3 | 25 s | loops | 64% |
+| D1 | 0:51.3–1:04.1 | 13 s | plays once | 92% |
+| E1 | 1:04.1–1:29.7 | 26 s | loops | 82% |
+| C2 | 1:29.7–1:55.3 | 26 s | loops | 90% |
+| D2 | 1:55.3–2:08.0 | 13 s | plays once | 70% |
+| E2 | 2:08.0–2:33.7 | 26 s | loops | 76% |
+| F1 | 2:33.7–2:59.3 | 26 s | loops | 62% |
+| E3 | 2:59.3–3:12.1 | 13 s | loops | 72% |
+| Outro | 3:12.1–3:26.6 | 14 s | plays once | — |
+
+- **Same letter = same music.** C1 / C2, D1 / D2 and E1–E3 are repeats of one section, so any
+  of them can stand in for another.
+- **D1 and D2 are build-ups**, so musslop plays them once and moves on instead of looping
+  them. The last part was split off by hand and marked as an ending (*Outro*).
+- **Loop quality** shows how cleanly the end joins back to the start. Above ~75% the seam is
+  usually inaudible; lower scores are worth a listen with ⟲♪.
+
+Two scenes are saved on top: *Exploration* loops C1, and *Something is close* moves to C2 on
+the next phrase. At the table that's **Shift+1** while players look around and **Shift+2**
+when it gets tense.
+
+### The markup file
+
+**Files → ⤓ Markup** downloads a `*.musslop.json`. Drop it into musslop
+together with the audio to restore everything. The full file for this example is
+[`examples/markup/Splendorius - Oblivion Roses.musslop.json`](examples/markup/Splendorius%20-%20Oblivion%20Roses.musslop.json);
+shortened:
+
+```json
+{
+  "track": "Splendorius — Oblivion Roses",
+  "tempo": 76,
+  "beats_per_bar": 4,
+  "meter_manual": false,
+  "segments": [
+    { "start": 0.0,    "end": 12.901, "label": "A1", "group": "A", "loop": true,  "transition": false, "loopability": 0.72 },
+    { "start": 25.834, "end": 51.31,  "label": "C1", "group": "C", "loop": true,  "transition": false, "loopability": 0.64 },
+    { "start": 51.31,  "end": 64.091, "label": "D1", "group": "D", "loop": false, "transition": true,  "loopability": 0.92 },
+    { "start": 89.664, "end": 115.329, "label": "C2", "group": "C", "loop": true, "transition": false, "loopability": 0.9 }
+  ],
+  "scenes": [
+    { "id": "explore", "name": "Exploration",        "segIndex": 2, "cueMode": "natural", "hotkey": "1",
+      "layers": null, "rate": 1, "crossfade": 0.4, "reverb": 0 },
+    { "id": "tension", "name": "Something is close", "segIndex": 5, "cueMode": "soon",    "hotkey": "2",
+      "layers": null, "rate": 1, "crossfade": 0.4, "reverb": 0.2 }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `segments[].start` / `end` | part boundaries in seconds, snapped to bar lines |
+| `label` / `group` | part name; parts with the same `group` letter sound alike |
+| `loop` | `true` loops the part; `false` plays it once and moves on (build-ups, endings) |
+| `transition` | the analysis thinks this part is a build-up |
+| `loopability` | loop seam quality, 0–1 |
+| `loopStart` *(optional)* | loop from this point instead of the part start (intro before the loop) |
+| `stinger` *(optional)* | `cymbal` / `boom` / `riser`, played on the transition into the part |
+| `beats_per_bar`, `meter_manual` | the meter; `meter_manual: true` keeps your manual choice when the file is loaded |
+| `scenes[].segIndex` | which part the scene plays (0-based) |
+| `scenes[].cueMode` | how it starts: `natural` at loop end, `soon` at the next phrase, `now` right away |
+| `scenes[].hotkey` | Shift + this digit fires the scene |
+| `scenes[].layers` | stem mix (drums / bass / other / vocals) or `null` for the full track |
 
 ## Optional neural analysis and layers
 
