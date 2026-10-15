@@ -48,8 +48,25 @@ def _find_ffmpeg() -> str:
 
 
 FFMPEG = _find_ffmpeg()
-# subprocesses (yt-dlp, demucs in the AI venv) look for ffmpeg in PATH - add it there
-if os.path.dirname(FFMPEG):
+# subprocesses (yt-dlp, demucs in the AI venv) need ffmpeg too. The bundled
+# imageio-ffmpeg binary is named "ffmpeg-linux-x86_64-v7.0.2" (not "ffmpeg"),
+# so putting its folder on PATH is not enough: expose it under the plain name
+# in a small bin dir, and pass the exact path in MUSLOOP_FFMPEG.
+os.environ["MUSLOOP_FFMPEG"] = FFMPEG
+if os.path.dirname(FFMPEG) and os.path.basename(FFMPEG).split(".")[0] != "ffmpeg":
+    _shim = os.path.join(UPLOAD_DIR, ".bin")
+    try:
+        os.makedirs(_shim, exist_ok=True)
+        _link = os.path.join(_shim, "ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        if not os.path.exists(_link):
+            if os.name == "nt":
+                shutil.copy2(FFMPEG, _link)
+            else:
+                os.symlink(FFMPEG, _link)
+        os.environ["PATH"] = _shim + os.pathsep + os.environ.get("PATH", "")
+    except OSError:
+        pass
+elif os.path.dirname(FFMPEG):
     os.environ["PATH"] = (os.path.dirname(FFMPEG) + os.pathsep
                           + os.environ.get("PATH", ""))
 

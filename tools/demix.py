@@ -19,6 +19,10 @@ def pick_device() -> str:
     return "cpu"
 
 
+# the server passes its ffmpeg (possibly the bundled imageio-ffmpeg binary)
+FFMPEG = os.environ.get("MUSLOOP_FFMPEG") or "ffmpeg"
+
+
 def main() -> None:
     audio, out_dir = sys.argv[1], sys.argv[2]
     os.makedirs(out_dir, exist_ok=True)
@@ -45,7 +49,7 @@ def main() -> None:
     tmp_wav = None
     if not audio.lower().endswith(".wav"):
         tmp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
-        subprocess.run(["ffmpeg", "-y", "-vn", "-i", audio, "-ac", "2",
+        subprocess.run([FFMPEG, "-y", "-vn", "-i", audio, "-ac", "2",
                         "-ar", str(model.samplerate), tmp_wav],
                        check=True, capture_output=True)
         src_path = tmp_wav
@@ -55,7 +59,7 @@ def main() -> None:
             # a simple resample via ffmpeg was already done above for non-wav;
             # for wav with a different sr - convert as well
             tmp2 = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
-            subprocess.run(["ffmpeg", "-y", "-i", src_path, "-ac", "2",
+            subprocess.run([FFMPEG, "-y", "-i", src_path, "-ac", "2",
                             "-ar", str(model.samplerate), tmp2],
                            check=True, capture_output=True)
             data, sr = sf.read(tmp2, always_2d=True, dtype="float32")
