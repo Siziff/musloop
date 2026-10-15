@@ -758,6 +758,9 @@ const STR = {
     history_del_tip: 'Удалить трек из истории',
     history_parts: 'ч.',
     loading_history: 'Загрузка трека из истории…',
+    err_oom: 'Не хватило оперативной памяти для анализа нейросетью{ram}. На процессоре ей нужно около 10 ГБ для обычного трека на 3–4 минуты и до ~25 ГБ для треков от 7 минут. В Docker Desktop: Settings → Resources → Advanced → Memory limit — увеличьте лимит и перезапустите контейнер. Или используйте обычный анализ.',
+    err_oom_stems: 'Не хватило оперативной памяти для разделения на слои{ram} (нужно около 2–3 ГБ). В Docker Desktop: Settings → Resources → Advanced → Memory limit — увеличьте лимит и перезапустите контейнер.',
+    err_oom_have: ' (доступно около {n} ГБ)',
     volume_tip: 'Громкость (клик по иконке — выкл/вкл)',
     theme_mono: 'Тема: минимал',
     theme_tavern: 'Тема: таверна (D&D)',
@@ -1002,6 +1005,9 @@ const STR = {
     history_del_tip: 'Remove track from history',
     history_parts: 'parts',
     loading_history: 'Loading track from history…',
+    err_oom: 'Not enough memory for the neural analysis{ram}. On CPU it needs about 10 GB for a typical 3–4 minute track and up to ~25 GB for tracks of 7 minutes or longer. Docker Desktop: Settings → Resources → Advanced → Memory limit — raise the limit and restart the container. Or use the fast analysis.',
+    err_oom_stems: 'Not enough memory to split the track into layers{ram} (needs about 2–3 GB). Docker Desktop: Settings → Resources → Advanced → Memory limit — raise the limit and restart the container.',
+    err_oom_have: ' (about {n} GB available)',
     volume_tip: 'Volume (click icon to mute/unmute)',
     theme_mono: 'Theme: minimal',
     theme_tavern: 'Theme: tavern (D&D)',
@@ -1247,6 +1253,9 @@ const STR = {
     history_del_tip: '从历史记录中删除',
     history_parts: '段',
     loading_history: '正在从历史记录加载音轨…',
+    err_oom: '神经网络分析内存不足{ram}。在 CPU 上，3–4 分钟的普通音轨约需 10 GB，7 分钟以上的音轨最多约需 25 GB。Docker Desktop：Settings → Resources → Advanced → Memory limit，提高上限并重启容器。或使用快速分析。',
+    err_oom_stems: '分离音轨图层时内存不足{ram}（约需 2–3 GB）。Docker Desktop：Settings → Resources → Advanced → Memory limit，提高上限并重启容器。',
+    err_oom_have: '（可用约 {n} GB）',
     volume_tip: '音量（点击图标静音/取消静音）',
     theme_mono: '主题：极简',
     theme_tavern: '主题：酒馆（D&D）',
@@ -1423,6 +1432,14 @@ try {
     if (oldV != null && localStorage.getItem('musloop_' + k) == null) localStorage.setItem('musloop_' + k, oldV);
   }
 } catch (e) {}
+
+// Server errors that start with "[oom:<GB>]" / "[oom-stems:<GB>]" -> localized text
+function localizeServerError(msg, t) {
+  const m = /^\[(oom|oom-stems):(\d*)\]\s*/.exec(msg || '');
+  if (!m) return msg;
+  const ram = m[2] ? t.err_oom_have.replace('{n}', m[2]) : '';
+  return (m[1] === 'oom' ? t.err_oom : t.err_oom_stems).replace('{ram}', ram);
+}
 
 const METERS = [2, 3, 4, 5, 6, 7];
 function meterGrid(beats, bpb, phase) {
@@ -2883,7 +2900,7 @@ function App() {
       while (true) {
         const st = await (await fetch(`/api/stems/${trackId}/status`)).json();
         if (st.status === 'done') break;
-        if (st.status === 'error') throw new Error(st.error || t.err_analyze);
+        if (st.status === 'error') throw new Error(localizeServerError(st.error, t) || t.err_analyze);
         if (st.status === 'none') throw new Error(t.err_analyze);
         setLoading(`${t.stems_loading_pct} ${st.progress || 0}%`);
         await new Promise(res => setTimeout(res, 1500));
@@ -3667,7 +3684,7 @@ function App() {
       if (bpb) params.set('beats_per_bar', bpb);
       const qs = params.toString();
       const r = await fetch(`/api/analyze/${id}${qs ? '?' + qs : ''}`);
-      if (!r.ok) throw new Error((await r.json()).detail || t.err_analyze);
+      if (!r.ok) throw new Error(localizeServerError((await r.json()).detail, t) || t.err_analyze);
       const a = await r.json();
       setAnalysis(a);
       setSegments(a.segments);
