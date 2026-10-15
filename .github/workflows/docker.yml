@@ -1,0 +1,43 @@
+name: Docker
+on:
+  push:
+    branches: [main, dev]
+    paths: [Dockerfile, .dockerignore, docker-compose.yml, requirements.txt, backend/**, frontend/**, tests/smoke_api.py, .github/workflows/docker.yml]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t musslop:ci .
+      - name: Image size
+        run: docker image ls musslop:ci --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Start container
+        run: |
+          docker run -d --name m -p 8801:8801 -v musslop-ci:/data musslop:ci
+          for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
+          curl -fs localhost:8801/api/health
+      - name: Test track (two 32 s sections at 120 BPM, generated with the image's ffmpeg)
+        run: |
+          docker exec m ffmpeg -loglevel error \
+            -f lavfi -i "sine=frequency=110:duration=32" \
+            -f lavfi -i "sine=frequency=880:duration=32,volume='if(lt(mod(t,0.5),0.05),1,0.05)':eval=frame" \
+            -f lavfi -i "sine=frequency=165:duration=32" \
+            -f lavfi -i "anoisesrc=d=32:c=pink:a=0.3,volume='if(lt(mod(t,0.5),0.06),1,0.1)':eval=frame" \
+            -filter_complex "[0][1]amix=inputs=2[a];[2][3]amix=inputs=2[b];[a][b]concat=n=2:v=0:a=1,volume=2" \
+            -ac 2 -ar 44100 /tmp/test.mp3
+          docker cp m:/tmp/test.mp3 "./Тестовый трек.mp3"
+      - name: API smoke test (upload, analyze + meter, markup, export, Foundry export)
+        run: python3 tests/smoke_api.py 8801 "./Тестовый трек.mp3"
+      - name: Data survives a restart (volume)
+        run: |
+          docker rm -f m
+          docker run -d --name m2 -p 8801:8801 -v musslop-ci:/data musslop:ci
+          for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
+          curl -fs localhost:8801/api/tracks | python3 -c "import sys,json; t=json.load(sys.stdin)['tracks']; print(len(t),'track(s)'); assert t"
+      - name: Logs
+        if: always()
+        run: docker logs m 2>/dev/null || docker logs m2

@@ -138,6 +138,28 @@ run.bat      # → http://localhost:8801
 
 ffmpeg is downloaded automatically with the dependencies — no manual install needed.
 
+### Docker
+
+No Python needed — just [Docker](https://docs.docker.com/get-docker/) (Docker Desktop on Windows / macOS):
+
+```bash
+git clone https://github.com/Siziff/musslop.git && cd musslop
+docker compose up -d        # → http://localhost:8801
+```
+
+- The image is roughly 0.6–0.7 GB and runs on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5).
+- Your tracks, markups and projects live in the `musslop-data` volume and survive updates:
+  `git pull && docker compose up -d --build`.
+- To use ☰ → **Folders**, uncomment the music folder line in `docker-compose.yml`
+  and add `/music` inside musslop. The *Pick folder…* dialog does not work in Docker; type the path.
+- The AI engines (SongFormer, All-In-One) are not included: they need several GB of PyTorch.
+  Use the native setup for them.
+- By default the app is only reachable from this computer. To open it to your LAN (e.g. a tablet
+  at the table), change the port line to `"8801:8801"`.
+
+Without Compose: `docker build -t musslop .` then
+`docker run -d -p 8801:8801 -v musslop-data:/data musslop`.
+
 ## Your first loop
 
 1. Open **http://localhost:8801** after starting the server.

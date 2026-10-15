@@ -1,0 +1,32 @@
+# Everything not needed inside the image (keeps the build context small and
+# the image free of local data, venvs and media).
+.git
+.gitignore
+.gitattributes
+.venv
+.venv-ai
+.venv-songformer
+uploads
+example
+examples
+marketing
+habr_img
+assets
+tools
+**/__pycache__
+**/*.pyc
+*.log
+*.gif
+*.mp4
+*.md
+!README.md
+.env
+frontend/mockups
+setup*.sh
+setup*.bat
+run.sh
+run.bat
+requirements-dev.txt
+Dockerfile
+docker-compose.yml
+.dockerignore

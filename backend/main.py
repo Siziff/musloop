@@ -21,7 +21,8 @@ from fastapi.staticfiles import StaticFiles
 from .analysis import analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+# MUSSLOP_DATA: where tracks / markups / projects live (Docker: a volume)
+UPLOAD_DIR = os.path.abspath(os.environ.get("MUSSLOP_DATA") or os.path.join(BASE_DIR, "uploads"))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -62,12 +63,11 @@ def _venv_python(venv_dir: str) -> list[str]:
 
 
 # Python from the venv with allin1 (torch+NATTEN). Priority: env variable ->
-# local .venv-ai (created by ./setup-ai-allin1.sh) -> path on the dev server.
+# local .venv-ai (created by ./setup-ai-allin1.sh).
 def _find_deep_py() -> str | None:
     cands = [
         os.environ.get("MUSSLOP_DEEP_PY"),
         *_venv_python(os.path.join(BASE_DIR, ".venv-ai")),
-        "/workspace-SR008.fs2/mikheev-kandy/.envs/allin1/bin/python",
     ]
     for c in cands:
         if c and os.path.exists(c):
@@ -82,12 +82,10 @@ def _find_songformer() -> tuple[str | None, str | None]:
     py_cands = [
         os.environ.get("MUSSLOP_SONGFORMER_PY"),
         *_venv_python(os.path.join(BASE_DIR, ".venv-songformer")),
-        "/workspace-SR008.fs2/mikheev-kandy/.envs/songformer/bin/python",
     ]
     src_cands = [
         os.environ.get("SONGFORMER_SRC"),
         os.path.join(BASE_DIR, ".venv-songformer", "src"),
-        "/workspace-SR008.fs2/mikheev-kandy/.envs/songformer-src",
     ]
     py = next((c for c in py_cands if c and os.path.exists(c)), None)
     src = next((c for c in src_cands if c and os.path.isdir(c or "")), None)
@@ -137,6 +135,13 @@ def _restore_tracks() -> None:
         try:
             with open(os.path.join(UPLOAD_DIR, fn)) as f:
                 meta = json.load(f)
+            # data folder moved (another checkout, Docker volume): files keep
+            # their names, so look for them next to the meta file
+            for k in ("orig", "wav"):
+                if meta.get(k) and not os.path.exists(meta[k]):
+                    moved = os.path.join(UPLOAD_DIR, os.path.basename(meta[k]))
+                    if os.path.exists(moved):
+                        meta[k] = moved
             if os.path.exists(meta["orig"]) and os.path.exists(meta["wav"]):
                 TRACKS[meta["id"]] = meta
         except Exception:
