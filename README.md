@@ -147,7 +147,7 @@ git clone https://github.com/Siziff/musloop.git && cd musloop
 docker compose up -d        # → http://localhost:8801
 ```
 
-- The image is about 600 MB and runs on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5).
+- The image is about 600 MB and runs on any regular computer with Docker: Windows, Linux and macOS (Intel and Apple M-series).
 - Your tracks, markups and projects live in the `musloop-data` volume and survive updates:
   `git pull && docker compose up -d --build`.
 - To use ☰ → **Folders**, uncomment the music folder line in `docker-compose.yml`

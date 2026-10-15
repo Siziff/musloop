@@ -51,7 +51,7 @@ jobs:
         run: docker logs musloop-ci 2>/dev/null || docker logs musloop-ci2
 
   arm64:
-    # Apple Silicon / Raspberry Pi: build under QEMU and check the app imports and answers
+    # Apple M-series Macs (arm64): build under QEMU and check the app imports and answers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

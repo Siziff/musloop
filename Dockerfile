@@ -9,7 +9,7 @@
 # Size: ~600 MB (python:3.12-slim ~120 MB + numpy/scipy/numba/librosa ~390 MB
 # + a static ffmpeg ~80 MB). Debian's ffmpeg package would add ~450 MB of
 # video/X11 libraries we don't need.
-# Works on x86_64 and arm64 (Apple Silicon, Raspberry Pi 4/5 64-bit).
+# Works on regular PCs and Macs: x86_64 and arm64 (Apple M-series Macs).
 # The optional AI engines (SongFormer / All-In-One, several GB of PyTorch)
 # are NOT included — install them natively with setup-ai-*.sh if you need them.
 
