@@ -21,11 +21,19 @@ def adb(*a, check_=True):
     return subprocess.run(["adb", *a], capture_output=True, text=True, check=check_).stdout
 
 
+def app_pid():
+    return adb("shell", "pidof", PKG, check_=False).strip().split(" ")[0]
+
+
 def webview_ws():
-    """DevTools websocket of the app's WebView (debug builds are inspectable)."""
-    for _ in range(60):
+    """DevTools websocket of the app's WebView (debug builds are inspectable).
+    The socket is named webview_devtools_remote_<pid>: pick the current app's."""
+    adb("forward", "--remove-all", check_=False)
+    for _ in range(90):
+        pid = app_pid()
         socks = [l.split()[-1].lstrip("@") for l in adb("shell", "cat", "/proc/net/unix").splitlines()
                  if "webview_devtools_remote" in l]
+        socks = [x for x in socks if pid and x.endswith("_" + pid)] or []
         if socks:
             adb("forward", "tcp:9229", f"localabstract:{socks[0]}")
             try:
@@ -91,10 +99,12 @@ def main():
                     break
                 await asyncio.sleep(0.5)
             check(playing, "app ▶ -> the PC plays (pass counter appears in the app)")
-            # app restart -> reconnects to the saved PC by itself
-            adb("shell", "am", "force-stop", PKG)
     asyncio.run(run())
+    # app restart -> reconnects to the saved PC by itself
+    adb("shell", "am", "force-stop", PKG)
+    time.sleep(2)
     adb("shell", "am", "start", "-n", f"{PKG}/.MainActivity")
+    time.sleep(3)
     ws_url = webview_ws()
     async def again():
         async with websockets.connect(ws_url, max_size=None) as cdp:

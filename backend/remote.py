@@ -334,7 +334,13 @@ def register(app):
         return {"key": remote_key()}
 
     @app.get("/api/remote/ping")
-    def remote_ping():
+    def remote_ping(request: Request):
+        """Pairing check for the phone app. A presented key is always checked,
+        even from this computer (the Android emulator reaches the host as
+        127.0.0.1), so "wrong key" behaves the same everywhere."""
+        given = request.headers.get("x-musloop-key")
+        if given is not None and not _key_ok(given):
+            return JSONResponse({"detail": "bad key"}, 403)
         return {"ok": True, "app": "musloop", "api": 1, "name": socket.gethostname(), **RELAY.info()}
 
     @app.websocket("/ws/host")
@@ -378,7 +384,9 @@ def register(app):
         except Exception:  # noqa: BLE001
             await ws.close(code=4400)
             return
-        if not (local or _key_ok(hello.get("key"))):
+        # a presented key is always checked (the PC's own browser may omit it)
+        given = hello.get("key")
+        if not ((local and not given) or _key_ok(given)):
             await RELAY._send(ws, {"type": "error", "error": "bad_key"})
             await ws.close(code=4401)
             return
