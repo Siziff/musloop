@@ -583,6 +583,23 @@
   .live-title { font-family: var(--font-title); font-weight: 700; font-size: 16px; letter-spacing: 1px; display: flex; gap: 12px; align-items: baseline; }
   .live-title .time { color: var(--muted); font-family: var(--mono); font-size: 12px; }
   .live-stage { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+  .remote-btn { position: relative; }
+  .remote-btn.on { border-color: var(--accent); color: var(--accent); }
+  .remote-count { margin-left: 6px; background: var(--accent2); color: var(--on-accent); border-radius: 9px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  .remote-panel { display: flex; gap: 20px; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--panel); padding: 16px 18px; }
+  .remote-qr { flex: none; width: 210px; min-height: 210px; display: flex; align-items: center; justify-content: center;
+    background: #fff; border-radius: var(--radius-sm); padding: 6px; }
+  .remote-qr img { width: 198px; height: 198px; image-rendering: pixelated; }
+  .remote-text { flex: 1; min-width: 0; }
+  .remote-text ol { margin: 8px 0 6px 18px; padding: 0; line-height: 1.6; }
+  .remote-url code { font-family: var(--mono); font-size: 12.5px; color: var(--text); word-break: break-all; }
+  .remote-status { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .remote-ip { margin: 8px 0; }
+  .remote-ip label { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
+  .remote-ip input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 7px 10px; font-family: var(--mono); font-size: 14px; width: 170px; outline: none; }
+  @media (max-width: 760px) { .remote-panel { flex-direction: column; } }
   .live-track { display: flex; align-items: center; gap: 4px; font-family: var(--font); font-weight: 600; letter-spacing: 0; }
   .live-track button { padding: 6px 10px; font-size: 13px; }
   .live-track-name { display: flex; align-items: center; gap: 8px; max-width: min(52vw, 560px); }
@@ -650,6 +667,6 @@
     }
   });
 </script>
-<script defer src="app.js?v=3471391c5c"></script>
+<script defer src="app.js?v=36889e21dd"></script>
 </body>
 </html>

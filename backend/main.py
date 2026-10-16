@@ -1441,4 +1441,8 @@ def index():
     return FileResponse(dev, media_type="text/html")
 
 
+# phone remote (/remote, /ws/host, /ws/remote) + network access rules
+from . import remote as _remote  # noqa: E402
+_remote.register(app)
+
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

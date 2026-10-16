@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#111419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="musloop">
+<title>musloop remote</title>
+<style>
+  :root {
+    --bg: #111419; --panel: #1b2028; --panel2: #232a34; --text: #f2f2f2; --muted: #9fa8b5;
+    --accent: #d8ff3e; --accent2: #34d399; --danger: #ff6b6b; --border: #2c333d;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
+  body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  #root { max-width: 640px; margin: 0 auto; padding: 10px 12px 96px; }
+  button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .35; }
+  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .logo { font-weight: 800; letter-spacing: .5px; }
+  .logo b { color: var(--accent); }
+  .conn { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); }
+  .dot.ok { background: var(--accent2); }
+  .dot.warn { background: #ffb84f; }
+  .banner { border: 1px solid var(--danger); color: var(--danger); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; font-size: 14px; line-height: 1.4; }
+  .track { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .track .name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .track .name small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .track .step { width: 48px; padding: 12px 0; }
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; min-height: 92px; }
+  .card.armed { border-color: var(--accent); }
+  .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .big { font-size: 24px; font-weight: 800; margin: 6px 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now .big { color: var(--accent2); }
+  .sub { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+  .transport { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .transport button { padding: 18px 6px; font-weight: 700; font-size: 15px; }
+  .primary { background: var(--accent); color: #111; border-color: var(--accent); }
+  .go { background: var(--text); color: #111; border-color: var(--text); }
+  .go.armed { background: var(--accent); border-color: var(--accent); }
+  .modes { display: flex; gap: 6px; margin-bottom: 14px; }
+  .modes button { flex: 1; padding: 9px 4px; font-size: 13px; border-radius: 20px; }
+  .modes button.on { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 700; }
+  h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin: 14px 2px 8px; font-weight: 700; }
+  .pads { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .pad { text-align: left; min-height: 64px; border-left: 5px solid var(--c, var(--border)); display: flex; flex-direction: column; gap: 3px; }
+  .pad .pn { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pad .ps { font-size: 11.5px; color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pad.on { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; border-left-color: var(--c, var(--accent2)); }
+  .pad.queued { border-style: dashed; border-color: var(--accent); border-left-style: solid; }
+  .pad.scene { background: var(--panel); }
+  .vol { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(17,20,25,.96); border-top: 1px solid var(--border);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 12px; }
+  .vol input { flex: 1; accent-color: var(--accent); height: 28px; }
+  .vol span { font-family: var(--mono); font-size: 13px; color: var(--muted); width: 44px; text-align: right; }
+  .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; z-index: 10; }
+  .sheet > div { background: var(--panel); width: 100%; max-height: 80vh; overflow: auto; border-radius: 16px 16px 0 0; padding: 14px 12px calc(14px + env(safe-area-inset-bottom)); }
+  .sheet .item { width: 100%; text-align: left; margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+  .sheet .item.on { border-color: var(--accent2); }
+  .sheet .item .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet .grp { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 10px 4px 6px; }
+  .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--danger);
+    color: var(--text); padding: 10px 14px; border-radius: 10px; font-size: 14px; z-index: 20; max-width: 90vw; }
+  .center { text-align: center; padding: 40px 16px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="vendor/react.min.js"></script>
+<script src="vendor/react-dom.min.js"></script>
+<script src="remote.js"></script>
+</body>
+</html>

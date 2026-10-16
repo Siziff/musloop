@@ -21,7 +21,7 @@ jobs:
       - name: Start container
         run: |
           echo "::notice title=images::$(docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | tr '\n' ' ')"
-          if ! out=$(docker run -d --name musloop-ci -p 8801:8801 -v musloop-ci:/data musloop:ci 2>&1); then
+          if ! out=$(docker run -d --name musloop-ci -p 8801:8801 -p 8802:8802 -v musloop-ci:/data musloop:ci 2>&1); then
             echo "::error title=docker run::$(echo "$out" | tr '\n' ' ')"; exit 1
           fi
           for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
@@ -40,6 +40,12 @@ jobs:
           docker cp musloop-ci:/tmp/test.mp3 "./Тестовый трек.mp3"
       - name: API smoke test (upload, analyze + meter, markup, export, Foundry export)
         run: python3 tests/smoke_api.py 8801 "./Тестовый трек.mp3"
+      - name: Phone remote security (app port 8801, remote-only port 8802)
+        run: |
+          pip install --quiet websockets
+          # the runner's own LAN address = a "phone" on the network
+          LAN=$(hostname -I | awk '{print $1}')
+          python3 tests/remote_security.py "$LAN" 8801 8802
       - name: Data survives a restart (volume)
         run: |
           docker rm -f musloop-ci

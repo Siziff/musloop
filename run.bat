@@ -13,6 +13,13 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
+rem packages added in later versions (phone remote): install them after a git pull
+".venv\Scripts\python.exe" -c "import websockets, segno" >nul 2>nul
+if errorlevel 1 (
+  echo Installing new dependencies ^(requirements.txt^) ...
+  ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt
+)
+
 rem Load local settings from .env if present (KEY=VALUE lines)
 if exist ".env" (
   for /f "usebackq eol=# tokens=1,* delims==" %%a in (".env") do set "%%a=%%b"

@@ -38,7 +38,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-".venv\Scripts\python.exe" -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg; print('OK: core dependencies ready (ffmpeg bundled:', imageio_ffmpeg.get_ffmpeg_exe(), ')')"
+".venv\Scripts\python.exe" -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready (ffmpeg bundled:', imageio_ffmpeg.get_ffmpeg_exe(), ')')"
 if errorlevel 1 (
   echo ERROR: verification failed.
   pause

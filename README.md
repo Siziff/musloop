@@ -35,7 +35,7 @@ generating new music.
 collection. Runs locally and works offline after the required dependencies and
 models have been downloaded. This is a personal passion project, shared freely.
 
-[What's new](#whats-new) · [Quick start](#quick-start) · [Your first loop](#your-first-loop) · [Example](#example-one-track-step-by-step) · [Features](#features) · [Under the hood](#under-the-hood)
+[What's new](#whats-new) · [Quick start](#quick-start) · [Phone remote](#phone-remote) · [Your first loop](#your-first-loop) · [Example](#example-one-track-step-by-step) · [Features](#features) · [Under the hood](#under-the-hood)
 
 **Read about the project:** [Article on Habr (in Russian)](https://habr.com/ru/articles/1086674/).
 
@@ -153,11 +153,11 @@ docker compose up -d        # → http://localhost:8801
 - To use ☰ → **Folders**, uncomment the music folder line in `docker-compose.yml`
   and add `/music` inside musloop. The *Pick folder…* dialog does not work in Docker; type the path.
 - The neural engines are in a separate, bigger image — see **Docker with the AI engines** below.
-- By default the app is only reachable from this computer. To open it to your LAN (e.g. a tablet
-  at the table), change the port line to `"8801:8801"`.
+- The app is only reachable from this computer. The phone remote uses its own port, 8802, which
+  is open to your Wi-Fi (see **Phone remote** below).
 
 Without Compose: `docker build -t musloop .` then
-`docker run -d -p 8801:8801 -v musloop-data:/data musloop`.
+`docker run -d -p 127.0.0.1:8801:8801 -p 8802:8802 -v musloop-data:/data musloop`.
 
 #### Docker with the AI engines
 
@@ -286,6 +286,28 @@ shortened:
 | `scenes[].cueMode` | how it starts: `natural` at loop end, `soon` at the next phrase, `now` right away |
 | `scenes[].hotkey` | Shift + this digit fires the scene |
 | `scenes[].layers` | stem mix (drums / bass / other / vocals) or `null` for the full track |
+
+## Phone remote
+
+Run Live mode from your phone while the music plays on the computer: parts, scenes, Next / Cancel /
+Fade, transition mode, track switching and volume. Nothing to install on the phone.
+
+1. Phone and computer on the **same Wi-Fi**.
+2. On the computer: Live mode (`L`) → **📱 Phone**. A QR code appears.
+3. Scan it with the phone camera and open the link.
+
+- The sound plays in the musloop tab on the computer — keep it open. If it is closed or the
+  computer sleeps, the phone says so and reconnects by itself when musloop is back.
+- Several phones can connect at once; they all see the same state.
+- **New code** in the QR panel cuts off every phone that has the old one.
+- Security: from the network only the remote page is reachable, and only with the key from the QR
+  code. Files, folders, uploads and settings stay available on the computer only.
+- **Docker:** the container cannot see the computer's network address, so the QR panel asks for
+  it once (Windows: `ipconfig`, macOS: Settings → Wi-Fi → Details, Linux: `hostname -I`). The remote
+  runs on port 8802, published by the compose files. Allow it in the firewall if the phone can't connect.
+- Native setup: the remote uses the app's port (8801); allow it in the firewall if needed. To use the
+  *full* app from another computer at home, set `MUSLOOP_TRUST_NETWORK=192.168.1.0/24` (your network)
+  in `.env` — anyone on that network then gets full access.
 
 ## Optional neural analysis and layers
 

@@ -17,8 +17,11 @@ services:
     image: musloop:ai
     container_name: musloop
     ports:
-      # bound to this computer only; change to "8801:8801" to open it to your LAN
+      # the app: this computer only (keep it on 127.0.0.1)
       - "127.0.0.1:8801:8801"
+      # phone remote (Live mode → 📱 Phone): open to your Wi-Fi. Only the remote
+      # page is reachable on this port, and only with the key from the QR code.
+      - "8802:8802"
     volumes:
       - musloop-data:/data
       # Optional: a music folder on your disk for ☰ → Folders (add it as /music).
