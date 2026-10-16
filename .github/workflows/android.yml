@@ -60,7 +60,7 @@ jobs:
       - name: Build APK
         working-directory: mobile
         run: |
-          VERSION=0.0.0
+          VERSION=0.0.1
           case "$GITHUB_REF" in refs/tags/app-v*) VERSION="${GITHUB_REF_NAME#app-v}";; esac
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           npm ci 2>&1 | tail -5

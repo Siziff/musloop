@@ -10,7 +10,7 @@ android {
         // CI passes -PappVersion=1.2.3 (from the git tag); versionCode = 1*10000+2*100+3
         def appVersion = (project.findProperty('appVersion') ?: '0.1.0').toString()
         def vp = (appVersion.tokenize('.') + ['0', '0', '0']).take(3).collect { (it.replaceAll(/[^0-9]/, '') ?: '0') as int }
-        versionCode vp[0] * 10000 + vp[1] * 100 + vp[2]
+        versionCode Math.max(1, vp[0] * 10000 + vp[1] * 100 + vp[2])
         versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
