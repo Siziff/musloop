@@ -1,0 +1,143 @@
+name: Android app
+on:
+  push:
+    branches: [main, dev]
+    tags: ["app-v*"]
+    paths: [mobile/**, frontend/remote.src.js, frontend/remote.html, frontend/vendor/**, backend/remote.py, tools/build.py, .github/workflows/android.yml]
+  pull_request:
+    paths: [mobile/**, frontend/remote.src.js, backend/remote.py]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK 36
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: musloop server (for the tests)
+        run: |
+          pip install --quiet -r requirements.txt quickjs playwright websockets
+          python -m playwright install --with-deps chromium
+          python tools/build.py
+          # a short test track + one with scenes for the remote to show
+          python - <<'EOF'
+          import numpy as np, soundfile as sf
+          sr = 44100; t = np.arange(int(sr * 64)) / sr
+          y = 0.3 * np.sin(2 * np.pi * 110 * t) * (1 + (t > 32)) + 0.2 * ((t % 0.5) < 0.05) * np.sin(2 * np.pi * 880 * t)
+          sf.write("Village Consort.wav", np.c_[y, y], sr)
+          EOF
+          mkdir -p /tmp/musloop-data
+          PORT=8801 MUSLOOP_DATA=/tmp/musloop-data nohup python -m uvicorn backend.main:app --host 0.0.0.0 --port 8801 > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs localhost:8801/api/health && break; sleep 1; done
+          curl -fs -F "file=@Village Consort.wav" localhost:8801/api/upload
+          TID=$(curl -fs localhost:8801/api/tracks | python -c "import sys,json;print(json.load(sys.stdin)['tracks'][0]['track_id'])")
+          # analyze + save the markup with two scenes (what the GM would do in the UI)
+          curl -fs "localhost:8801/api/analyze/$TID" | python -c "
+          import sys, json, urllib.request
+          a = json.load(sys.stdin)
+          mk = {k: a[k] for k in ('duration', 'tempo', 'beats', 'downbeats', 'beats_per_bar', 'meter', 'segments')}
+          mk['scenes'] = [{'id': 's1', 'name': 'Exploration', 'segIndex': 0, 'cueMode': 'natural', 'hotkey': '1'},
+                          {'id': 's2', 'name': 'Ambush', 'segIndex': min(1, len(a['segments']) - 1), 'cueMode': 'now', 'hotkey': '2'}]
+          urllib.request.urlopen(urllib.request.Request('http://localhost:8801/api/markup/$TID', data=json.dumps(mk).encode(),
+                                                        headers={'Content-Type': 'application/json'}))
+          print('track ready:', len(a['segments']), 'parts')"
+
+      - name: Build APK
+        working-directory: mobile
+        run: |
+          VERSION=0.0.0
+          case "$GITHUB_REF" in refs/tags/app-v*) VERSION="${GITHUB_REF_NAME#app-v}";; esac
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          npm ci
+          npm run sync
+          cd android && ./gradlew --no-daemon assembleDebug -PappVersion=$VERSION
+          ls -la app/build/outputs/apk/debug/
+
+      - name: App web part (connect screen + remote, Pixel 7 emulation)
+        run: |
+          LAN=$(hostname -I | awk '{print $1}')
+          python mobile/tests/app_web_test.py "$LAN" 8801
+
+      - name: Enable KVM (emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+
+      - name: Real Android emulator (API 35) — install, connect, control the PC
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            python mobile/tests/pc_host.py http://127.0.0.1:8801 "Village Consort" > host.log 2>&1 &
+            for i in $(seq 1 90); do grep -q "PC host ready" host.log && break; sleep 2; done; cat host.log
+            KEY=$(curl -fs localhost:8801/api/remote/info | python -c "import sys,json;print(json.load(sys.stdin)['key'])")
+            python mobile/tests/emulator_test.py http://10.0.2.2:8801 "$KEY" mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musloop-remote-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: ignore
+
+      - name: Logs
+        if: always()
+        run: tail -60 server.log || true
+
+  release:
+    # tag app-v1.2.3 -> signed APK attached to a GitHub release
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Signed release APK
+        env:
+          KEYSTORE_B64: ${{ secrets.MUSLOOP_KEYSTORE_B64 }}
+          MUSLOOP_KEYSTORE_PASSWORD: ${{ secrets.MUSLOOP_KEYSTORE_PASSWORD }}
+          MUSLOOP_KEY_ALIAS: ${{ secrets.MUSLOOP_KEY_ALIAS }}
+          MUSLOOP_KEY_PASSWORD: ${{ secrets.MUSLOOP_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then echo "::error::Add the MUSLOOP_KEYSTORE_* secrets (see mobile/README.md)"; exit 1; fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/musloop.jks"
+          export MUSLOOP_KEYSTORE="$RUNNER_TEMP/musloop.jks"
+          pip install --quiet quickjs
+          python tools/build.py
+          VERSION="${GITHUB_REF_NAME#app-v}"
+          cd mobile && npm ci && npm run sync
+          cd android && ./gradlew --no-daemon assembleRelease -PappVersion=$VERSION
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/musloop-remote-$VERSION.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$GITHUB_WORKSPACE/musloop-remote-$VERSION.apk"
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: musloop remote ${{ github.ref_name }}
+          body: |
+            Android app for controlling musloop's Live mode from your phone.
+            Install: download the APK on the phone, open it, allow "Install unknown apps" for your browser / file manager.
+            Needs musloop on a computer in the same Wi-Fi (Live mode → 📱 Phone shows the QR code).
+          files: musloop-remote-*.apk

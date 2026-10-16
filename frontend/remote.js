@@ -8,8 +8,17 @@ const {
   useRef,
   useCallback
 } = React;
+
+// Platform hooks. The web page (served by musloop on the PC) uses the defaults.
+// The Android app (mobile/) sets window.MUSLOOP_NATIVE before this script:
+//   { server: 'http://192.168.1.20:8801', key: '...', vibrate(ms), keepAwake(on),
+//     onBadKey(), onDisconnectRequest() }
+const NATIVE = window.MUSLOOP_NATIVE || null;
 const STR = {
   en: {
+    badKeyApp: 'This PC changed its code. Scan the new QR code (Live mode → 📱 Phone).',
+    rescan: 'Scan again',
+    changePc: 'Another PC',
     connecting: 'Connecting…',
     online: 'PC online',
     offline: 'PC not responding',
@@ -49,6 +58,9 @@ const STR = {
     }
   },
   ru: {
+    badKeyApp: 'На этом ПК сменили код. Отсканируйте новый QR-код (Live-режим → 📱 Телефон).',
+    rescan: 'Сканировать снова',
+    changePc: 'Другой ПК',
     connecting: 'Подключение…',
     online: 'ПК на связи',
     offline: 'ПК не отвечает',
@@ -88,6 +100,9 @@ const STR = {
     }
   },
   zh: {
+    badKeyApp: '这台电脑更换了代码。请扫描新的二维码（现场模式 → 📱 手机）。',
+    rescan: '重新扫描',
+    changePc: '其他电脑',
     connecting: '正在连接…',
     online: '电脑在线',
     offline: '电脑无响应',
@@ -133,21 +148,15 @@ const LANG = (() => {
   const n = (navigator.language || 'en').slice(0, 2);
   return STR[n] ? n : 'en';
 })();
-// until the PC sends its state we use the phone's language; then the PC's
-// (the GM picked it there), unless the phone has its own saved choice
+// Language: the phone's own (the web page shares localStorage with the PC's
+// musloop page, so a choice made on the PC also counts). In the Android app
+// the phone's system language is used — it is the GM's phone.
 let t = STR[LANG];
 document.documentElement.lang = LANG;
-const PHONE_LANG_SAVED = (() => {
-  try {
-    return !!localStorage.getItem('musloop_lang');
-  } catch (e) {
-    return false;
-  }
-})();
 
 // key: from the URL fragment (#k=...) — never sent to the server in the URL,
 // remembered so the page keeps working after the phone reloads it
-const KEY = (() => {
+const KEY = NATIVE ? NATIVE.key : (() => {
   const m = /[#&]k=([^&]+)/.exec(location.hash);
   if (m) {
     try {
@@ -163,15 +172,22 @@ const KEY = (() => {
 })();
 const buzz = ms => {
   try {
-    navigator.vibrate && navigator.vibrate(ms);
+    if (NATIVE && NATIVE.vibrate) NATIVE.vibrate(ms);else if (navigator.vibrate) navigator.vibrate(ms);
   } catch (e) {}
 };
+// ws://host:port of the PC: the page's own origin on the web, the saved PC in the app
+const WS_BASE = NATIVE ? NATIVE.server.replace(/^http/, 'ws') : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 
 // keep the screen on: Wake Lock where allowed (secure contexts only), otherwise
 // a muted looping video (the trick that works on plain http on iOS / Android)
 function useKeepAwake(enabled) {
   useEffect(() => {
     if (!enabled) return;
+    if (NATIVE && NATIVE.keepAwake) {
+      // the app: a real FLAG_KEEP_SCREEN_ON
+      NATIVE.keepAwake(true);
+      return () => NATIVE.keepAwake(false);
+    }
     let lock = null,
       video = null,
       stop = false;
@@ -258,7 +274,7 @@ function Remote() {
       delay = 800;
     const connect = () => {
       if (stop) return;
-      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/remote`);
+      ws = new WebSocket(`${WS_BASE}/ws/remote`);
       wsRef.current = ws;
       ws.onopen = () => {
         delay = 800;
@@ -332,12 +348,14 @@ function Remote() {
       args
     }));
   };
-  const lang = !PHONE_LANG_SAVED && st && STR[st.lang] ? st.lang : LANG;
-  t = STR[lang];
-  if (document.documentElement.lang !== lang) document.documentElement.lang = lang;
   if (conn === 'nokey' || conn === 'badkey') return /*#__PURE__*/React.createElement("div", {
     className: "center"
-  }, conn === 'nokey' ? t.noKey : t.badKey);
+  }, /*#__PURE__*/React.createElement("div", null, conn === 'nokey' ? t.noKey : NATIVE ? t.badKeyApp : t.badKey), NATIVE && /*#__PURE__*/React.createElement("button", {
+    style: {
+      marginTop: 18
+    },
+    onClick: () => NATIVE.onBadKey && NATIVE.onBadKey()
+  }, t.rescan));
   const playing = st && st.playing;
   const parts = st && st.parts || [];
   const cur = st && parts[st.index];
@@ -349,7 +367,11 @@ function Remote() {
     className: "top"
   }, /*#__PURE__*/React.createElement("div", {
     className: "logo"
-  }, "musloop", /*#__PURE__*/React.createElement("b", null, "_")), /*#__PURE__*/React.createElement("div", {
+  }, "musloop", /*#__PURE__*/React.createElement("b", null, "_")), NATIVE && /*#__PURE__*/React.createElement("button", {
+    className: "chg",
+    onClick: () => NATIVE.onDisconnectRequest && NATIVE.onDisconnectRequest(),
+    title: t.changePc
+  }, "\u21C4"), /*#__PURE__*/React.createElement("div", {
     className: "conn"
   }, /*#__PURE__*/React.createElement("span", {
     className: 'dot' + (conn === 'ok' && hostOnline ? ' ok' : conn === 'ok' ? ' warn' : '')

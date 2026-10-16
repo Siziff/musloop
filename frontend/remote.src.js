@@ -3,8 +3,15 @@
 // sends commands and shows the PC's state, over /ws/remote.
 const { useState, useEffect, useRef, useCallback } = React;
 
+// Platform hooks. The web page (served by musloop on the PC) uses the defaults.
+// The Android app (mobile/) sets window.MUSLOOP_NATIVE before this script:
+//   { server: 'http://192.168.1.20:8801', key: '...', vibrate(ms), keepAwake(on),
+//     onBadKey(), onDisconnectRequest() }
+const NATIVE = window.MUSLOOP_NATIVE || null;
+
 const STR = {
   en: {
+    badKeyApp: 'This PC changed its code. Scan the new QR code (Live mode → 📱 Phone).', rescan: 'Scan again', changePc: 'Another PC',
     connecting: 'Connecting…', online: 'PC online', offline: 'PC not responding', lost: 'Connection lost — reconnecting…',
     noKey: 'Open this page by scanning the QR code in musloop (Live mode → 📱 Phone).',
     badKey: 'This QR code is no longer valid. Scan the new code in musloop (Live mode → 📱 Phone).',
@@ -18,6 +25,7 @@ const STR = {
     err: { not_playing: 'Press Play first', host_offline: 'The PC is not responding', no_track: 'Open a track first' },
   },
   ru: {
+    badKeyApp: 'На этом ПК сменили код. Отсканируйте новый QR-код (Live-режим → 📱 Телефон).', rescan: 'Сканировать снова', changePc: 'Другой ПК',
     connecting: 'Подключение…', online: 'ПК на связи', offline: 'ПК не отвечает', lost: 'Связь потеряна — переподключаемся…',
     noKey: 'Откройте эту страницу через QR-код в musloop (Live-режим → 📱 Телефон).',
     badKey: 'Этот QR-код больше не действует. Отсканируйте новый в musloop (Live-режим → 📱 Телефон).',
@@ -31,6 +39,7 @@ const STR = {
     err: { not_playing: 'Сначала нажмите «Играть»', host_offline: 'ПК не отвечает', no_track: 'Сначала откройте трек' },
   },
   zh: {
+    badKeyApp: '这台电脑更换了代码。请扫描新的二维码（现场模式 → 📱 手机）。', rescan: '重新扫描', changePc: '其他电脑',
     connecting: '正在连接…', online: '电脑在线', offline: '电脑无响应', lost: '连接中断——正在重连…',
     noKey: '请扫描 musloop 中的二维码打开此页面（现场模式 → 📱 手机）。',
     badKey: '此二维码已失效。请扫描 musloop 中的新二维码（现场模式 → 📱 手机）。',
@@ -50,27 +59,35 @@ const LANG = (() => {
   const n = (navigator.language || 'en').slice(0, 2);
   return STR[n] ? n : 'en';
 })();
-// until the PC sends its state we use the phone's language; then the PC's
-// (the GM picked it there), unless the phone has its own saved choice
+// Language: the phone's own (the web page shares localStorage with the PC's
+// musloop page, so a choice made on the PC also counts). In the Android app
+// the phone's system language is used — it is the GM's phone.
 let t = STR[LANG];
 document.documentElement.lang = LANG;
-const PHONE_LANG_SAVED = (() => { try { return !!localStorage.getItem('musloop_lang'); } catch (e) { return false; } })();
 
 // key: from the URL fragment (#k=...) — never sent to the server in the URL,
 // remembered so the page keeps working after the phone reloads it
-const KEY = (() => {
+const KEY = NATIVE ? NATIVE.key : (() => {
   const m = /[#&]k=([^&]+)/.exec(location.hash);
   if (m) { try { localStorage.setItem('musloop_remote_key', m[1]); } catch (e) {} return m[1]; }
   try { return localStorage.getItem('musloop_remote_key'); } catch (e) { return null; }
 })();
 
-const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+const buzz = ms => {
+  try { if (NATIVE && NATIVE.vibrate) NATIVE.vibrate(ms); else if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+};
+// ws://host:port of the PC: the page's own origin on the web, the saved PC in the app
+const WS_BASE = NATIVE ? NATIVE.server.replace(/^http/, 'ws') : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 
 // keep the screen on: Wake Lock where allowed (secure contexts only), otherwise
 // a muted looping video (the trick that works on plain http on iOS / Android)
 function useKeepAwake(enabled) {
   useEffect(() => {
     if (!enabled) return;
+    if (NATIVE && NATIVE.keepAwake) {           // the app: a real FLAG_KEEP_SCREEN_ON
+      NATIVE.keepAwake(true);
+      return () => NATIVE.keepAwake(false);
+    }
     let lock = null, video = null, stop = false;
     const viaApi = async () => {
       try { if ('wakeLock' in navigator) { lock = await navigator.wakeLock.request('screen'); return true; } } catch (e) {}
@@ -126,7 +143,7 @@ function Remote() {
     let ws = null, stop = false, retry = null, delay = 800;
     const connect = () => {
       if (stop) return;
-      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/remote`);
+      ws = new WebSocket(`${WS_BASE}/ws/remote`);
       wsRef.current = ws;
       ws.onopen = () => { delay = 800; ws.send(JSON.stringify({ type: 'hello', key: KEY, ua: navigator.userAgent })); };
       ws.onmessage = ev => {
@@ -162,12 +179,11 @@ function Remote() {
     ws.send(JSON.stringify({ type: 'cmd', seq: ++seqRef.current, cmd, args }));
   };
 
-  const lang = (!PHONE_LANG_SAVED && st && STR[st.lang]) ? st.lang : LANG;
-  t = STR[lang];
-  if (document.documentElement.lang !== lang) document.documentElement.lang = lang;
-
   if (conn === 'nokey' || conn === 'badkey')
-    return <div className="center">{conn === 'nokey' ? t.noKey : t.badKey}</div>;
+    return <div className="center">
+      <div>{conn === 'nokey' ? t.noKey : (NATIVE ? t.badKeyApp : t.badKey)}</div>
+      {NATIVE && <button style={{ marginTop: 18 }} onClick={() => NATIVE.onBadKey && NATIVE.onBadKey()}>{t.rescan}</button>}
+    </div>;
 
   const playing = st && st.playing;
   const parts = (st && st.parts) || [];
@@ -181,6 +197,8 @@ function Remote() {
     <div>
       <div className="top">
         <div className="logo">musloop<b>_</b></div>
+        {NATIVE && <button className="chg" onClick={() => NATIVE.onDisconnectRequest && NATIVE.onDisconnectRequest()}
+          title={t.changePc}>⇄</button>}
         <div className="conn">
           <span className={'dot' + (conn === 'ok' && hostOnline ? ' ok' : conn === 'ok' ? ' warn' : '')}></span>
           {conn === 'ok' ? (hostOnline ? t.online : t.offline) : conn === 'lost' ? t.lost : t.connecting}

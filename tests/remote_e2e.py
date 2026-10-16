@@ -54,7 +54,7 @@ async def main():
 
         phones = []
         for dev in ("iPhone 14", "Pixel 7"):
-            ctx = await br.new_context(**p.devices[dev])
+            ctx = await br.new_context(**p.devices[dev], locale="ru-RU")   # the remote follows the phone's language
             ph = await ctx.new_page(); errs = []
             ph.on("pageerror", lambda e, errs=errs: errs.append(str(e)))
             await ph.goto(url)
@@ -65,7 +65,7 @@ async def main():
         check(cnt and cnt.strip() == "2", f"PC shows 2 phones connected ({cnt})")
         dev, ph, _ = phones[0]
         txt = await ph.text_content("body")
-        check("Village Consort" in txt and "ПК на связи" in txt, f"{dev}: sees track + 'PC online' in the PC's language (ru)")
+        check("Village Consort" in txt and "ПК на связи" in txt, f"{dev}: sees track + 'PC online' in the phone's language (ru)")
         parts = await ph.locator(".pad:not(.scene)").count()
         scenes = await ph.locator(".pad.scene").count()
         check(parts >= 4 and scenes >= 2, f"{dev}: {parts} part pads, {scenes} scene pads")

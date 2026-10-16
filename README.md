@@ -299,6 +299,8 @@ Fade, transition mode, track switching and volume. Nothing to install on the pho
 - The sound plays in the musloop tab on the computer — keep it open. If it is closed or the
   computer sleeps, the phone says so and reconnects by itself when musloop is back.
 - Several phones can connect at once; they all see the same state.
+- **Android app** (optional): finds musloop on the Wi-Fi by itself, scans the QR code, keeps the
+  screen on — download the APK from Releases. See [`mobile/README.md`](mobile/README.md).
 - **New code** in the QR panel cuts off every phone that has the old one.
 - Security: from the network only the remote page is reachable, and only with the key from the QR
   code. Files, folders, uploads and settings stay available on the computer only.

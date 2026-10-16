@@ -40,6 +40,8 @@ REMOTE_PUBLIC = {"/remote", "/remote.js", "/vendor/react.min.js", "/vendor/react
                  "/keepawake.mp4", "/keepawake.webm", "/favicon.ico"}
 # API a phone may call with the key (read-only). Commands go over /ws/remote.
 REMOTE_ALLOWED = {"/api/remote/ping"}
+# The Android app's WebView runs on its own origin (Capacitor), not the PC's.
+APP_ORIGINS = {"https://localhost", "http://localhost", "capacitor://localhost"}
 
 
 def remote_key() -> str:
@@ -169,8 +171,14 @@ class SecurityMiddleware:
         if method in ("GET", "HEAD") and path in REMOTE_PUBLIC:
             return await self.app(scope, receive, send)
         headers = dict(scope.get("headers") or [])
+        origin = headers.get(b"origin", b"").decode()
+        # CORS preflight from the app for the key-checked ping
+        if method == "OPTIONS" and path in REMOTE_ALLOWED and origin in APP_ORIGINS:
+            return await PlainTextResponse("", 204, headers=_cors(origin))(scope, receive, send)
         key = headers.get(b"x-musloop-key", b"").decode() or None
         if method in ("GET", "HEAD") and path in REMOTE_ALLOWED and _key_ok(key):
+            if origin in APP_ORIGINS:
+                return await self.app(scope, receive, _with_headers(send, _cors(origin)))
             return await self.app(scope, receive, send)
         log.info("remote: refused %s %s from %s", method, path, client[0])
         resp = (PlainTextResponse("musloop: this page is only available on the computer running musloop. "
@@ -178,6 +186,22 @@ class SecurityMiddleware:
                 if method == "GET" and not path.startswith("/api/")
                 else JSONResponse({"detail": "Not allowed from the network"}, 403))
         return await resp(scope, receive, send)
+
+
+def _cors(origin: str) -> dict:
+    return {"Access-Control-Allow-Origin": origin, "Vary": "Origin",
+            "Access-Control-Allow-Headers": "X-Musloop-Key",
+            "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "600"}
+
+
+def _with_headers(send, extra: dict):
+    async def wrapped(message):
+        if message["type"] == "http.response.start":
+            message = dict(message)
+            message["headers"] = list(message.get("headers") or []) + \
+                [(k.lower().encode(), v.encode()) for k, v in extra.items()]
+        await send(message)
+    return wrapped
 
 
 async def _ws_reject(scope, receive, send):
@@ -220,6 +244,44 @@ class Relay:
 
 
 RELAY = Relay()
+
+
+# --------------------------------------------------------------------------
+# Discovery: the app broadcasts "MUSLOOP?" on UDP 8803; we answer with the
+# remote port and the computer's name (no key — pairing still needs the QR).
+# --------------------------------------------------------------------------
+DISCOVERY_PORT = 8803
+
+
+class _Discovery(asyncio.DatagramProtocol):
+    def __init__(self, port: int):
+        self.port = port
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def datagram_received(self, data, addr):
+        if data.strip() != b"MUSLOOP?":
+            return
+        reply = json.dumps({"app": "musloop", "port": self.port, "name": socket.gethostname()})
+        try:
+            self.transport.sendto(reply.encode(), addr)
+        except OSError:
+            pass
+
+
+async def start_discovery(port: int):
+    if os.environ.get("MUSLOOP_DISCOVERY", "1") == "0":
+        return None
+    try:
+        loop = asyncio.get_running_loop()
+        transport, _ = await loop.create_datagram_endpoint(
+            lambda: _Discovery(port), local_addr=("0.0.0.0", DISCOVERY_PORT), allow_broadcast=True)
+        log.info("remote: discovery on udp/%d", DISCOVERY_PORT)
+        return transport
+    except OSError as e:   # port busy (second musloop) - discovery is optional
+        log.info("remote: discovery off (%s)", e)
+        return None
 
 
 def register(app):
@@ -273,7 +335,7 @@ def register(app):
 
     @app.get("/api/remote/ping")
     def remote_ping():
-        return {"ok": True, **RELAY.info()}
+        return {"ok": True, "app": "musloop", "api": 1, "name": socket.gethostname(), **RELAY.info()}
 
     @app.websocket("/ws/host")
     async def ws_host(ws: WebSocket):
@@ -349,5 +411,10 @@ def register(app):
         finally:
             RELAY.remotes.pop(ws, None)
             await RELAY.presence()
+
+    @app.on_event("startup")
+    async def _discovery():
+        port = _remote_port() or int(os.environ.get("PORT", "0") or 0) or 8801
+        app.state.discovery = await start_discovery(port)
 
     app.add_middleware(SecurityMiddleware)

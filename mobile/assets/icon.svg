@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- musloop mark: a loop arrow around a waveform, lime on the brand's dark background -->
+  <rect width="1024" height="1024" fill="#111419"/>
+  <g transform="translate(512 512)">
+    <path d="M-250 -10 C -250 -230 250 -230 250 -10 V 60 C 250 280 -250 280 -250 60 V 10"
+          fill="none" stroke="#d8ff3e" stroke-width="54" stroke-linecap="round"/>
+    <path d="M-300 -40 L -250 30 L -196 -36" fill="none" stroke="#d8ff3e" stroke-width="54"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M-125 -40 V 70 M-62 -95 V 125 M0 -60 V 90 M62 -130 V 160 M125 -70 V 100"
+          stroke="#f2f7d6" stroke-width="40" stroke-linecap="round"/>
+  </g>
+</svg>

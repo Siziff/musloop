@@ -4,6 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 PORT="${1:-${PORT:-8801}}"
+export PORT   # the app announces this port to the phone app (discovery)
 
 # Use the local venv if present (created by ./setup.sh)
 if [ -x ".venv/bin/python" ]; then

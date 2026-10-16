@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  musloop runs on a computer in the same Wi-Fi and speaks plain http/ws (there
+  is no certificate for a LAN address). Cleartext is needed for that; the app
+  never talks to internet hosts, and only connects to the address the user
+  scanned / picked. Everything else keeps Android's default (https only).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
