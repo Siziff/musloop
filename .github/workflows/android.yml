@@ -63,9 +63,12 @@ jobs:
           VERSION=0.0.0
           case "$GITHUB_REF" in refs/tags/app-v*) VERSION="${GITHUB_REF_NAME#app-v}";; esac
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          npm ci
-          npm run sync
-          cd android && ./gradlew --no-daemon assembleDebug -PappVersion=$VERSION
+          npm ci 2>&1 | tail -5
+          if ! npm run sync > sync.log 2>&1; then echo "::error title=npm run sync::$(tail -15 sync.log | tr '\n' '|')"; exit 1; fi
+          cd android
+          if ! ./gradlew --no-daemon assembleDebug -PappVersion=$VERSION > ../gradle.log 2>&1; then
+            echo "::error title=gradle::$(grep -E 'What went wrong|error:|FAILURE|> ' ../gradle.log | head -20 | tr '\n' '|')"; exit 1
+          fi
           ls -la app/build/outputs/apk/debug/
 
       - name: App web part (connect screen + remote, Pixel 7 emulation)
