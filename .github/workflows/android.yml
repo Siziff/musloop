@@ -14,15 +14,20 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "21" }
       - uses: actions/setup-node@v4
         with: { node-version: "24" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - uses: android-actions/setup-android@v3
-      - name: Install SDK 36
-        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - name: Android SDK 36 (the runner ships the SDK; add platform 36 if missing)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools" > /dev/null
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
       - name: musloop server (for the tests)
         run: |
@@ -108,14 +113,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "21" }
       - uses: actions/setup-node@v4
         with: { node-version: "24" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+      - run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" > /dev/null
       - name: Signed release APK
         env:
           KEYSTORE_B64: ${{ secrets.MUSLOOP_KEYSTORE_B64 }}
