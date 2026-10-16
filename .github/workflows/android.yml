@@ -130,16 +130,37 @@ jobs:
           MUSLOOP_KEY_ALIAS: ${{ secrets.MUSLOOP_KEY_ALIAS }}
           MUSLOOP_KEY_PASSWORD: ${{ secrets.MUSLOOP_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then echo "::error::Add the MUSLOOP_KEYSTORE_* secrets (see mobile/README.md)"; exit 1; fi
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/musloop.jks"
+          fail() { echo "::error title=$1::$2"; exit 1; }
+          # which secrets arrived (lengths only, never the values)
+          echo "::notice title=secrets::KEYSTORE_B64=${#KEYSTORE_B64} chars, STORE_PASSWORD=${#MUSLOOP_KEYSTORE_PASSWORD}, ALIAS='${MUSLOOP_KEY_ALIAS}', KEY_PASSWORD=${#MUSLOOP_KEY_PASSWORD}"
+          [ -n "$KEYSTORE_B64" ] || fail "secrets" "MUSLOOP_KEYSTORE_B64 is empty (see mobile/README.md)"
+          [ -n "$MUSLOOP_KEYSTORE_PASSWORD" ] || fail "secrets" "MUSLOOP_KEYSTORE_PASSWORD is empty"
+          [ -n "$MUSLOOP_KEY_ALIAS" ] || fail "secrets" "MUSLOOP_KEY_ALIAS is empty"
+          # spaces / line breaks pasted into the secret are harmless: strip them
+          printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/musloop.jks" 2> b64.err \
+            || fail "keystore" "MUSLOOP_KEYSTORE_B64 is not valid base64: $(cat b64.err)"
           export MUSLOOP_KEYSTORE="$RUNNER_TEMP/musloop.jks"
+          # empty key password = same as the store password (keytool's default when you press Enter)
+          export MUSLOOP_KEY_PASSWORD="${MUSLOOP_KEY_PASSWORD:-$MUSLOOP_KEYSTORE_PASSWORD}"
+          keytool -list -keystore "$MUSLOOP_KEYSTORE" -storepass "$MUSLOOP_KEYSTORE_PASSWORD" > ks.txt 2>&1 \
+            || fail "keystore" "can't open the keystore with MUSLOOP_KEYSTORE_PASSWORD: $(tail -3 ks.txt | tr '\n' ' ')"
+          ALIASES=$(grep -E ', (PrivateKeyEntry|privatekeyentry),' ks.txt | cut -d, -f1 | tr '\n' ' ')
+          echo "::notice title=keystore::aliases in the keystore: $ALIASES"
+          keytool -list -keystore "$MUSLOOP_KEYSTORE" -storepass "$MUSLOOP_KEYSTORE_PASSWORD" -alias "$MUSLOOP_KEY_ALIAS" > /dev/null 2>&1 \
+            || fail "keystore" "alias '$MUSLOOP_KEY_ALIAS' not in the keystore (it has: $ALIASES) — fix MUSLOOP_KEY_ALIAS"
           pip install --quiet quickjs
           python tools/build.py
           VERSION="${GITHUB_REF_NAME#app-v}"
-          cd mobile && npm ci && npm run sync
-          cd android && ./gradlew --no-daemon assembleRelease -PappVersion=$VERSION
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/musloop-remote-$VERSION.apk"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$GITHUB_WORKSPACE/musloop-remote-$VERSION.apk"
+          cd mobile && npm ci > /dev/null && npm run sync > sync.log 2>&1 || fail "npm run sync" "$(tail -10 sync.log | tr '\n' '|')"
+          cd android
+          ./gradlew --no-daemon assembleRelease -PappVersion=$VERSION > ../gradle.log 2>&1 \
+            || fail "gradle" "$(grep -E 'What went wrong|error:|Keystore|password|> ' ../gradle.log | head -15 | tr '\n' '|')"
+          APK=app/build/outputs/apk/release/app-release.apk
+          [ -f "$APK" ] || fail "gradle" "no signed APK produced: $(ls app/build/outputs/apk/release/ | tr '\n' ' ')"
+          cp "$APK" "$GITHUB_WORKSPACE/musloop-remote-$VERSION.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$GITHUB_WORKSPACE/musloop-remote-$VERSION.apk" > sig.txt 2>&1 \
+            || fail "apksigner" "$(tail -5 sig.txt | tr '\n' '|')"
+          echo "::notice title=signed::$(grep -m1 'certificate DN' sig.txt) $(grep -m1 'SHA-256' sig.txt)"
       - uses: softprops/action-gh-release@v2
         with:
           name: musloop remote ${{ github.ref_name }}
