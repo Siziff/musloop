@@ -394,3 +394,8 @@ plus classic MIR: Ellis 2007 (beat tracking), Foote 2000 (novelty segmentation).
 3. Port busy → `./run.sh` frees it; manually: `lsof -ti tcp:8801 | xargs kill`
 4. No sound → click the ♪? self-test in the volume box (bottom-right)
 5. Server errors → `server.log`
+6. Import from YouTube fails (`SSL: UNEXPECTED_EOF`, `Failed to resolve`, `No route to host`) →
+   the connection dropped or the network blocks YouTube. Try again; check the VPN. If YouTube only
+   works through a proxy, or IPv6 is broken, pass options to yt-dlp in `.env`:
+   `MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"`. Installing [Deno](https://deno.com)
+   (`brew install deno`) helps yt-dlp with newer YouTube pages.

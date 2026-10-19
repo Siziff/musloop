@@ -1124,11 +1124,17 @@ def import_url(body: dict = Body(...)):
     track_id = uuid.uuid4().hex[:12]
     out_tpl = os.path.join(UPLOAD_DIR, f"{track_id}.%(ext)s")
 
+    # extra yt-dlp options from .env, e.g. MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"
+    import shlex
+    extra = shlex.split(os.environ.get("MUSLOOP_YTDLP_ARGS", ""))
     # stream yt-dlp output to the log line by line ([download] xx.x% of ...)
     proc = subprocess.Popen(
         ytdlp + ["-x", "--audio-format", "mp3",
          "--audio-quality", "0", "--no-playlist", "--max-filesize", "200M",
          "--newline", "--force-overwrites",
+         # flaky VPN / Wi-Fi: retry instead of failing on the first dropped connection
+         "--retries", "10", "--fragment-retries", "10", "--extractor-retries", "5",
+         "--socket-timeout", "30", *extra,
          "-o", out_tpl, "--print", "after_move:filepath",
          "--print", "title", url],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -1156,9 +1162,15 @@ def import_url(body: dict = Body(...)):
     if ret != 0:
         tail = "\n".join(lines[-4:])
         low = tail.lower()
-        if "ssl" in low or "unable to download" in low or "timed out" in low:
-            hint = ("The server appears to have no access to YouTube (network/firewall). "
-                    "Run musloop locally on a machine with internet access. ")
+        if any(k in low for k in ("failed to resolve", "nodename nor servname", "name or service not known",
+                                  "getaddrinfo")):
+            hint = ("This computer could not look up the site's address (DNS). The internet / VPN "
+                    "connection dropped — check it and try again. ")
+        elif any(k in low for k in ("ssl", "unable to download", "timed out", "no route to host",
+                                    "connection reset", "connection refused")):
+            hint = ("The connection to the site was cut off. Try again; if it keeps happening, "
+                    "check your VPN / network (some networks block YouTube). A proxy can be set "
+                    "with MUSLOOP_YTDLP_ARGS in .env, see README. ")
         elif "sign in" in low or "age" in low:
             hint = "The video requires sign-in / age confirmation. "
         elif "yt-dlp -u" in low or "extract" in low:
