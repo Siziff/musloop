@@ -202,6 +202,105 @@ def meter_from_downbeats(beats: list, downbeats: list) -> dict | None:
             "source": "neural", "bar_histogram": hist}
 
 
+def clean_beats(beats, max_ratio: float = 0.6) -> np.ndarray:
+    """Neural beat trackers sometimes add a spurious beat a fraction of a beat
+    after the real one (e.g. 0.10, 0.38, 0.90 at 77 BPM) or skip a beat in a
+    quiet passage. Both break "every Nth beat = a bar". Remove beats that come
+    much too early and fill holes of ~2-3 beats with evenly spaced beats."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 8:
+        return b
+    period = float(np.median(np.diff(b)))
+    if period <= 0:
+        return b
+    # pass 1: drop too-early beats (keep the one that fits the local period)
+    out = [b[0]]
+    for t in b[1:]:
+        if t - out[-1] < max_ratio * period:
+            # keep whichever of the two lands closer to out[-2] + period
+            if len(out) >= 2 and abs((out[-1] - out[-2]) - period) > abs((t - out[-2]) - period):
+                out[-1] = t
+            continue
+        out.append(t)
+    b = np.asarray(out)
+    period = float(np.median(np.diff(b)))
+    # pass 2: fill holes (1.6 .. 3.5 periods) with evenly spaced beats
+    filled = [b[0]]
+    for t in b[1:]:
+        gap = t - filled[-1]
+        k = int(round(gap / period))
+        if 2 <= k <= 3 and gap > 1.6 * period:
+            for j in range(1, k):
+                filled.append(filled[-1] + gap / k)
+        filled.append(t)
+    return np.asarray(filled)
+
+
+def beats_are_regular(beats, tol: float = 0.4) -> bool:
+    """Beat intervals close to their local median (no doubled / missing beats)."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 8:
+        return True
+    d = np.diff(b)
+    loc = np.array([np.median(d[max(0, i - 8):i + 9]) for i in range(len(d))])
+    return bool(np.mean(np.abs(d - loc) > tol * loc) < 0.03)
+
+
+def repair_grid(beats, downbeats, beats_per_bar: int | None = None) -> dict | None:
+    """Fix a saved markup's beat / bar grid without re-analysing the audio:
+    clean the beats, rebuild an even bar grid that follows the old downbeats'
+    phase. Returns {"beats", "downbeats", "beats_per_bar"} or None if the grid
+    is already fine."""
+    b = np.asarray(beats or [], dtype=float)
+    db = np.asarray(downbeats or [], dtype=float)
+    if len(b) < 8:
+        return None
+    if beats_are_regular(b) and grid_is_regular(db, b):
+        return None
+    cb = clean_beats(b)
+    bpb = int(beats_per_bar) if beats_per_bar in METERS else None
+    if bpb is None:
+        m = meter_from_downbeats(cb.tolist(), db.tolist())
+        bpb = m["beats_per_bar"] if m and m["beats_per_bar"] in (3, 4, 6) else 4
+    ndb, _ = regular_downbeats(cb, db, bpb)
+    # accents for client-side meter changes: 1 on a bar start, 0 elsewhere
+    on = set(np.searchsorted(cb, ndb - 1e-3).tolist())
+    accents = [1.0 if i in on else 0.0 for i in range(len(cb))]
+    return {"beats": cb.tolist(), "downbeats": ndb.tolist(), "beats_per_bar": bpb,
+            "beat_accents": accents, "downbeats_auto": ndb.tolist()}
+
+
+def regular_downbeats(beats, downbeats, bpb: int) -> tuple[np.ndarray, int]:
+    """An even bar grid (every bpb-th beat) whose phase agrees with as many
+    neural downbeats as possible. Returns (downbeats, phase)."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < bpb:
+        return np.asarray(downbeats, dtype=float), 0
+    phase = _neural_phase(b, np.asarray(downbeats, dtype=float), bpb) if len(downbeats) else 0
+    phase = phase or 0
+    return grid_downbeats(b, bpb, phase), phase
+
+
+def grid_is_regular(downbeats, beats=None, tol: float = 0.25) -> bool:
+    """Is the bar grid usable? With beats: (almost) every bar has the same
+    number of beats — tempo changes (a slow intro, a ritardando) are fine.
+    Without beats: bar lengths within +-tol of their local median."""
+    db = np.asarray(downbeats, dtype=float)
+    if len(db) < 5:
+        return True
+    if beats is not None and len(beats) >= 8:
+        b = np.asarray(beats, dtype=float)
+        idx = np.searchsorted(b, db - 1e-3)
+        cnt = np.diff(idx)
+        if len(cnt) == 0:
+            return True
+        vals, freq = np.unique(cnt, return_counts=True)
+        return bool(freq.max() / len(cnt) >= 0.9)
+    d = np.diff(db)
+    loc = np.array([np.median(d[max(0, i - 4):i + 5]) for i in range(len(d))])
+    return bool(np.mean(np.abs(d - loc) > tol * loc) < 0.05)
+
+
 def grid_downbeats(beat_times: np.ndarray, beats_per_bar: int, phase: int) -> np.ndarray:
     return np.asarray(beat_times)[phase % max(1, beats_per_bar)::beats_per_bar]
 
@@ -278,6 +377,10 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     downbeats = deep.get("downbeats") or []
     beats = deep.get("beats") or []
     tempo = _snap_tempo(float(deep.get("bpm") or 120.0))
+    # neural beats can contain spurious extra beats / holes -> uneven bars
+    raw_downbeats = list(downbeats)
+    if len(beats) >= 8 and (not grid_is_regular(downbeats, beats) or not beats_are_regular(beats)):
+        beats = clean_beats(beats).tolist()
 
     b_arr = np.asarray(beats, dtype=float)
     db_arr = np.asarray(downbeats, dtype=float)
@@ -295,6 +398,18 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     else:
         detected = meter_from_downbeats(beats, downbeats) or \
             {"beats_per_bar": 4, "confidence": 0.0, "source": "neural"}
+        if not grid_is_regular(raw_downbeats, deep.get("beats") or []) and len(b_arr) >= 8:
+            # the network's bar lengths jump around (1..9 beats per "bar"):
+            # rebuild an even grid on the cleaned beats, phase from its downbeats
+            b_arr = np.asarray(beats, dtype=float)
+            bpb_guess = int(detected["beats_per_bar"])
+            if bpb_guess not in (3, 4, 6):
+                bpb_guess = 4
+            downbeats, _ph = regular_downbeats(b_arr, raw_downbeats, bpb_guess)
+            downbeats = downbeats.tolist()
+            db_arr = np.asarray(downbeats, dtype=float)
+            detected = {"beats_per_bar": bpb_guess, "confidence": round(float(detected.get("confidence", 0)), 3),
+                        "source": "neural", "regularized": True}
         # per-beat accents for the UI (phase shifts / meter changes
         # client-side): 1 on a neural downbeat, 0 elsewhere
         accents = [1.0 if len(db_arr) and float(np.min(np.abs(db_arr - t))) < 0.07 else 0.0
@@ -391,6 +506,7 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
         "meter": meter,
         "beat_accents": accents,
         "downbeats_auto": downbeats_auto,
+        "grid_v": 2,
     }
 
 

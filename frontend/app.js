@@ -1738,7 +1738,8 @@ function Waveform({
   t,
   beginEdit,
   commitEdit,
-  aiWorking
+  aiWorking,
+  phraseBars
 }) {
   const canvasRef = useRef(null);
   const peaksRef = useRef(null);
@@ -1878,32 +1879,50 @@ function Waveform({
         ctx.lineTo(tx(b), H);
       }
       ctx.stroke();
-      // every 4 bars — a taller, more visible phrase tick + group number
+      // every phrase (phraseBars bars) — a taller, more visible tick + phrase number
+      const PB = Math.max(1, phraseBars || 4);
       ctx.strokeStyle = TC.phrase;
       ctx.beginPath();
-      for (let i = 0; i < downbeats.length; i += 4) {
+      for (let i = 0; i < downbeats.length; i += PB) {
         const b = downbeats[i];
         if (b < t0 || b > t1) continue;
         ctx.moveTo(tx(b), H - 44);
         ctx.lineTo(tx(b), H);
       }
       ctx.stroke();
-      // bar numbering: on the overview — every 4th (phrase number), when
-      // zoomed — every bar (its number); the stride is picked by pixel density.
+      // bar numbering: zoomed in — every bar (bar number), overview — every
+      // phrase (phrase number). Density from the MEDIAN bar width in view, not
+      // the first bar (an odd first bar made whole tracks switch modes).
+      // Labels that would collide with the previous one are skipped.
       // Collected here, drawn AFTER the waveform (readability).
-      const barPx = ((downbeats[1] || duration) - (downbeats[0] || 0)) / span * W;
+      let medBar = 0;
+      {
+        const ds = [];
+        for (let i = 1; i < downbeats.length; i++) {
+          if (downbeats[i] < t0 - 30 || downbeats[i - 1] > t1 + 30) continue;
+          ds.push(downbeats[i] - downbeats[i - 1]);
+        }
+        ds.sort((a, b) => a - b);
+        medBar = ds.length ? ds[Math.floor(ds.length / 2)] : 0;
+      }
+      const barPx = medBar / span * W;
       let stride = 0;
       if (barPx >= 22) stride = 1; // strong zoom: every bar
-      else if (barPx * 4 >= 26) stride = 4; // overview: every 4 bars
+      else if (barPx * PB >= 26) stride = PB; // overview: every phrase
       if (stride) {
+        let lastX = -Infinity;
         for (let i = 0; i < downbeats.length; i += stride) {
           const b = downbeats[i];
           if (b < t0 || b > t1) continue;
+          const x = tx(b) + 3;
+          const n = String(stride === 1 ? i + 1 : i / stride + 1);
+          if (x - lastX < n.length * 6 + 8) continue; // would overlap the previous number
           barNums.push({
-            x: tx(b) + 3,
-            n: String(stride === 1 ? i + 1 : i / 4 + 1),
+            x,
+            n,
             stride
           });
+          lastX = x;
         }
       }
     }
@@ -2054,7 +2073,7 @@ function Waveform({
       ctx.fill();
       ctx.lineWidth = 1;
     }
-  }, [segments, beats, downbeats, duration, playingSeg, player]);
+  }, [segments, beats, downbeats, duration, playingSeg, player, phraseBars]);
   useEffect(() => {
     let raf;
     const loop = () => {
@@ -2942,6 +2961,7 @@ function App() {
           downbeats_auto: analysis.downbeats_auto,
           n_suggested: analysis.n_suggested,
           n_max: analysis.n_max,
+          grid_v: analysis.grid_v || 2,
           engine: analysis.engine,
           segments,
           scenes
@@ -2992,6 +3012,7 @@ function App() {
           downbeats_auto: markup.downbeats_auto || null,
           n_suggested: markup.n_suggested,
           n_max: markup.n_max,
+          grid_v: markup.grid_v || null,
           segments: markup.segments,
           fallback: false,
           engine: markup.engine
@@ -4711,6 +4732,7 @@ function App() {
     beats: analysis.beats,
     downbeats: analysis.downbeats,
     snap: snap,
+    phraseBars: phraseBars,
     player: player,
     playingSeg: playingSeg,
     duration: duration,
