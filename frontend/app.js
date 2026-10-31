@@ -929,6 +929,12 @@ class LoopPlayer {
   }
   _ensureCtx() {
     if (!this.ctx) {
+      // iOS Safari: Web Audio follows the ring/silent switch (Chrome on iOS
+      // uses the 'playback' session and ignores it) -> "no sound in Safari,
+      // fine in Chrome" on the same phone. Ask for a media playback session.
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      } catch (e) {}
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.master = this.ctx.createGain();
       this.master.gain.value = this.volume != null ? this.volume : 1;
