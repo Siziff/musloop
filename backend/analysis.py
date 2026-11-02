@@ -236,6 +236,92 @@ def clean_beats(beats, max_ratio: float = 0.6) -> np.ndarray:
     return np.asarray(filled)
 
 
+def beat_coverage(beats, duration: float) -> float:
+    """Share of the track covered by normally spaced beats (0..1). A beat
+    tracker that loses the beat in quiet / rubato passages leaves holes."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 2 or duration <= 0:
+        return 0.0
+    d = np.diff(b)
+    med = float(np.median(d))
+    return float(np.sum(d[d < 1.6 * med])) / duration
+
+
+def has_beat_gaps(beats, duration: float) -> bool:
+    """Holes the bar grid can't bridge: no beats for more than ~2 beats in the
+    middle, or the first beat much later than the start. (A quiet tail after
+    the last beat is normal and doesn't count.)"""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 8 or duration <= 0:
+        return False
+    d = np.diff(b)
+    med = float(np.median(d))
+    return bool(b[0] > max(2.5 * med, 1.5) or np.any(d > 2.5 * med))
+
+
+def fill_beat_gaps(beats, duration: float, downbeats=None, bpb: int | None = None) -> np.ndarray:
+    """Fill the holes a beat tracker left (see has_beat_gaps): beats are
+    continued through the hole with the tempo changing smoothly from the beat
+    period before it to the one after it (accelerando / ritardando), before
+    the first beat back to 0 and after the last one to the end. With the
+    neural downbeats + meter, the number of inserted beats is chosen so the
+    bar line after the hole stays on the same grid as before it."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 8 or duration <= 0:
+        return b
+    d = np.diff(b)
+    med = float(np.median(d))
+    normal = d < 1.6 * med
+
+    def period(lo, hi):
+        v = [d[j] for j in range(max(0, lo), min(len(d), hi)) if normal[j]]
+        return float(np.median(v)) if v else med
+
+    is_db = None
+    if downbeats is not None and len(downbeats) and bpb:
+        dbs = np.asarray(downbeats, dtype=float)
+        is_db = np.array([float(np.min(np.abs(dbs - t))) < 0.07 for t in b])
+    p0 = period(0, 8)
+    lead = []
+    t = b[0] - p0
+    while t >= 0:
+        lead.append(t)
+        t -= p0
+    out = lead[::-1]
+    last_db = None
+    for i, t in enumerate(b):
+        if i > 0 and d[i - 1] > 1.6 * med:
+            g = float(d[i - 1])
+            pb, pa = period(i - 9, i - 1), period(i, i + 8)
+            pm = (pb + pa) / 2
+            k0 = max(2, int(round(g / pm)))
+            cands = [k for k in (k0, k0 - 1, k0 + 1, k0 - 2, k0 + 2)
+                     if k >= 2 and 0.75 <= (g / k) / pm <= 1.33] or [k0]
+            k = cands[0]
+            if is_db is not None and last_db is not None:
+                nxt = next((j for j in range(i, len(b)) if is_db[j]), None)
+                if nxt is not None:
+                    for kk in cands:
+                        if (len(out) + (kk - 1) + (nxt - i) - last_db) % bpb == 0:
+                            k = kk
+                            break
+            w = np.linspace(pb, pa, k)
+            w = w / w.sum() * g
+            acc = float(b[i - 1])
+            for j in range(k - 1):
+                acc += float(w[j])
+                out.append(acc)
+        out.append(float(t))
+        if is_db is not None and is_db[i]:
+            last_db = len(out) - 1
+    p1 = period(len(d) - 8, len(d))
+    t = b[-1] + p1
+    while t <= duration - 0.25 * p1:
+        out.append(t)
+        t += p1
+    return np.asarray(out)
+
+
 def beats_are_regular(beats, tol: float = 0.4) -> bool:
     """Beat intervals close to their local median (no doubled / missing beats)."""
     b = np.asarray(beats, dtype=float)
@@ -246,7 +332,8 @@ def beats_are_regular(beats, tol: float = 0.4) -> bool:
     return bool(np.mean(np.abs(d - loc) > tol * loc) < 0.03)
 
 
-def repair_grid(beats, downbeats, beats_per_bar: int | None = None) -> dict | None:
+def repair_grid(beats, downbeats, beats_per_bar: int | None = None,
+                duration: float | None = None) -> dict | None:
     """Fix a saved markup's beat / bar grid without re-analysing the audio:
     clean the beats, rebuild an even bar grid that follows the old downbeats'
     phase. Returns {"beats", "downbeats", "beats_per_bar"} or None if the grid
@@ -255,13 +342,16 @@ def repair_grid(beats, downbeats, beats_per_bar: int | None = None) -> dict | No
     db = np.asarray(downbeats or [], dtype=float)
     if len(b) < 8:
         return None
-    if beats_are_regular(b) and grid_is_regular(db, b):
+    gappy = bool(duration) and has_beat_gaps(b, float(duration))
+    if not gappy and beats_are_regular(b) and grid_is_regular(db, b):
         return None
     cb = clean_beats(b)
     bpb = int(beats_per_bar) if beats_per_bar in METERS else None
     if bpb is None:
         m = meter_from_downbeats(cb.tolist(), db.tolist())
         bpb = m["beats_per_bar"] if m and m["beats_per_bar"] in (3, 4, 6) else 4
+    if duration and has_beat_gaps(cb, float(duration)):
+        cb = fill_beat_gaps(cb, float(duration), db, bpb)
     ndb, _ = regular_downbeats(cb, db, bpb)
     # accents for client-side meter changes: 1 on a bar start, 0 elsewhere
     on = set(np.searchsorted(cb, ndb - 1e-3).tolist())
@@ -382,10 +472,19 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     if len(beats) >= 8 and (not grid_is_regular(downbeats, beats) or not beats_are_regular(beats)):
         beats = clean_beats(beats).tolist()
 
+    lost = len(beats) < 16 or beat_coverage(beats, duration) < 0.3
+    if lost:
+        # the beat tracker lost the beat on most of the track (quiet /
+        # orchestral music): use the audio-based beats of the fast engine
+        _on = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
+        _t, _bf = librosa.beat.beat_track(onset_envelope=_on, sr=sr, hop_length=HOP, trim=False)
+        beats = librosa.frames_to_time(_bf, sr=sr, hop_length=HOP).tolist()
+        if len(beats) > 3:
+            tempo = _snap_tempo(float(60.0 / np.median(np.diff(beats))))
     b_arr = np.asarray(beats, dtype=float)
     db_arr = np.asarray(downbeats, dtype=float)
     override = beats_per_bar is not None and int(beats_per_bar) in METERS
-    assumed = bool(deep.get("downbeats_assumed")) and len(b_arr) >= 24
+    assumed = (bool(deep.get("downbeats_assumed")) or lost) and len(b_arr) >= 24
     if assumed:
         # beat model failed and the runner fell back to a fixed 4/4 grid:
         # estimate meter + phase from the audio like the fast engine does
@@ -398,7 +497,21 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     else:
         detected = meter_from_downbeats(beats, downbeats) or \
             {"beats_per_bar": 4, "confidence": 0.0, "source": "neural"}
-        if not grid_is_regular(raw_downbeats, deep.get("beats") or []) and len(b_arr) >= 8:
+        filled = False
+        if has_beat_gaps(beats, duration):
+            # holes where the network lost the beat: continue the beat
+            # through them, then one even bar grid over the whole track
+            bpb_guess = int(detected["beats_per_bar"]) if detected["beats_per_bar"] in (3, 4, 6) else 4
+            n0 = len(beats)
+            beats = fill_beat_gaps(beats, duration, raw_downbeats, bpb_guess).tolist()
+            b_arr = np.asarray(beats, dtype=float)
+            downbeats, _ph = regular_downbeats(b_arr, raw_downbeats, bpb_guess)
+            downbeats = downbeats.tolist()
+            db_arr = np.asarray(downbeats, dtype=float)
+            detected = {"beats_per_bar": bpb_guess, "confidence": round(float(detected.get("confidence", 0)), 3),
+                        "source": "neural", "regularized": True, "filled_beats": len(beats) - n0}
+            filled = True
+        if not filled and not grid_is_regular(raw_downbeats, deep.get("beats") or []) and len(b_arr) >= 8:
             # the network's bar lengths jump around (1..9 beats per "bar"):
             # rebuild an even grid on the cleaned beats, phase from its downbeats
             b_arr = np.asarray(beats, dtype=float)
@@ -506,7 +619,7 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
         "meter": meter,
         "beat_accents": accents,
         "downbeats_auto": downbeats_auto,
-        "grid_v": 2,
+        "grid_v": 3,
     }
 
 
