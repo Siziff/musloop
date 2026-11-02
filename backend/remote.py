@@ -103,6 +103,92 @@ def _key_ok(given: str | None) -> bool:
     return bool(given) and secrets.compare_digest(given, remote_key())
 
 
+# --------------------------------------------------------------------------
+# Browser attacks from this computer. Loopback is trusted, so a website open
+# in the user's browser must not be able to borrow that trust:
+#   * DNS rebinding: evil.example resolves to 127.0.0.1, the page then talks
+#     to musloop as "same origin". The Host header still says evil.example ->
+#     only known host names are accepted.
+#   * cross-site requests / WebSockets (form POST, fetch, new WebSocket from
+#     another site): the browser marks them with Origin / Sec-Fetch-Site ->
+#     such requests get only what a phone without the key gets.
+# --------------------------------------------------------------------------
+def _host_name(hostport: str) -> str:
+    h = hostport.strip().lower()
+    if h.startswith("["):                       # [::1]:8801
+        return h[1:h.find("]")] if "]" in h else h
+    if h.count(":") == 1:                       # name:port / 1.2.3.4:port
+        h = h.rsplit(":", 1)[0]
+    return h.rstrip(".")
+
+
+_NAMES: dict = {}
+
+
+def _allowed_names() -> set[str]:
+    """Host names (not IPs) musloop answers to: this computer's name,
+    MUSLOOP_PUBLIC_URL and MUSLOOP_ALLOWED_HOSTS (comma-separated)."""
+    if "v" not in _NAMES:
+        from urllib.parse import urlsplit
+        names = set()
+        try:
+            hn = socket.gethostname().lower()
+            names |= {hn, hn + ".local", hn.split(".")[0], hn.split(".")[0] + ".local"}
+        except OSError:
+            pass
+        public = os.environ.get("MUSLOOP_PUBLIC_URL", "").strip()
+        if public:
+            names.add((urlsplit(public if "//" in public else "//" + public).hostname or "").lower())
+        for n in os.environ.get("MUSLOOP_ALLOWED_HOSTS", "").split(","):
+            if n.strip():
+                names.add(_host_name(n))
+        names.discard("")
+        _NAMES["v"] = names
+    return _NAMES["v"]
+
+
+def host_allowed(hostport: str | None) -> bool:
+    """Is the Host header one of ours? IP addresses are always fine (DNS
+    rebinding needs a domain name), so are localhost and *.localhost."""
+    if not hostport:
+        return True                             # non-browser client (HTTP/1.0)
+    h = _host_name(hostport)
+    try:
+        ipaddress.ip_address(h)
+        return True
+    except ValueError:
+        pass
+    if h in ("localhost", "testserver", "testclient") or h.endswith(".localhost"):
+        return True
+    return h in _allowed_names()
+
+
+def _netloc(scheme: str, netloc: str) -> str:
+    n = netloc.strip().lower()
+    for s, port in (("http", ":80"), ("ws", ":80"), ("https", ":443"), ("wss", ":443")):
+        if scheme == s and n.endswith(port):
+            return n[: -len(port)]
+    return n
+
+
+def cross_site(scope, headers: dict) -> bool:
+    """Request made by a page of another site (or a sandboxed / file page)?"""
+    origin = headers.get(b"origin", b"").decode("latin-1").strip()
+    if origin:
+        from urllib.parse import urlsplit
+        if origin == "null":
+            return True
+        u = urlsplit(origin)
+        own = headers.get(b"host", b"").decode("latin-1")
+        scheme = "https" if scope.get("scheme") in ("https", "wss") else "http"
+        return _netloc(u.scheme, u.netloc) != _netloc(scheme, own)
+    # no Origin (e.g. GET from <img>, <script>): Sec-Fetch-Site tells. Opening
+    # musloop from a link (top-level navigation) stays allowed.
+    if headers.get(b"sec-fetch-site") == b"cross-site":
+        return headers.get(b"sec-fetch-mode") != b"navigate"
+    return False
+
+
 def lan_addresses() -> list[str]:
     """IPv4 addresses of this machine that a phone on the same Wi-Fi can use
     (private ranges, no loopback / link-local / docker bridges first)."""
@@ -159,9 +245,28 @@ class SecurityMiddleware:
         if scope["type"] not in ("http", "websocket"):
             return await self.app(scope, receive, send)
         client = scope.get("client") or (None, None)
-        if trusted(scope):
-            return await self.app(scope, receive, send)
+        headers = dict(scope.get("headers") or [])
         path = scope.get("path", "")
+        host = headers.get(b"host", b"").decode("latin-1")
+        if not host_allowed(host):
+            # DNS rebinding: a foreign domain pointed at this computer
+            log.warning("refused %s %s: unknown host name %r (MUSLOOP_ALLOWED_HOSTS)", scope["type"], path, host)
+            if scope["type"] == "websocket":
+                return await _ws_reject(scope, receive, send)
+            return await PlainTextResponse(
+                f"musloop: unknown host name '{_host_name(host)}'. Open musloop at http://localhost:"
+                f"{(scope.get('server') or (None, 8801))[1]}/ or add the name to MUSLOOP_ALLOWED_HOSTS.",
+                403)(scope, receive, send)
+        local = trusted(scope)
+        if local and cross_site(scope, headers):
+            # a page of another site in this computer's browser: it gets only
+            # what a phone gets (and needs the key for that)
+            log.info("cross-site %s %s from origin %r: remote rules", scope["type"], path,
+                     headers.get(b"origin", b"").decode("latin-1"))
+            local = False
+        scope["musloop_trusted"] = local
+        if local:
+            return await self.app(scope, receive, send)
         if scope["type"] == "websocket":
             # the remote socket authenticates itself (key in the first message)
             if path == "/ws/remote":
@@ -170,7 +275,6 @@ class SecurityMiddleware:
         method = scope.get("method", "GET")
         if method in ("GET", "HEAD") and path in REMOTE_PUBLIC:
             return await self.app(scope, receive, send)
-        headers = dict(scope.get("headers") or [])
         origin = headers.get(b"origin", b"").decode()
         # CORS preflight from the app for the key-checked ping
         if method == "OPTIONS" and path in REMOTE_ALLOWED and origin in APP_ORIGINS:
@@ -378,7 +482,8 @@ def register(app):
     async def ws_remote(ws: WebSocket):
         """A phone. First message must be {"type":"hello","key":...}."""
         await ws.accept()
-        local = trusted(ws.scope)
+        # set by the middleware: this computer AND not opened by a foreign site
+        local = bool(ws.scope.get("musloop_trusted"))
         try:
             hello = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=10))
         except Exception:  # noqa: BLE001
