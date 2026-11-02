@@ -209,6 +209,29 @@ All variants use the same `musloop-data` volume, so your tracks carry over betwe
 7. For game audio prototyping, choose **Files → Loops (zip)** to export WAV loops
    with `manifest.json`.
 
+### Where tracks are stored
+
+Every track gets its own folder in `library/` (next to `run.sh`), named like the track in the app:
+
+```text
+library/
+  Village Consort/
+    Village Consort.mp3   the audio you added
+    track.json            parts, scenes, bar grid, AI results
+    cache/                analysis files, re-created when missing
+    stems/                layers, if you made them
+  .musloop/               projects, music folders, temporary files
+```
+
+- Renaming a track in the app renames its folder and audio file.
+- To move a track to another computer, copy its folder into that computer's `library/`
+  (`cache/` can be left out). An audio file or a folder with an audio file dropped into
+  `library/` shows up as a new track.
+- Tracks from older versions (`uploads/`) are moved into `library/` on the first start. The old
+  metadata is kept in `uploads/.migrated/`; once everything opens fine, `uploads/` can be deleted.
+- Another place: `MUSLOOP_LIBRARY=/path/to/library` in `.env`. In Docker the library is
+  `/data/library` in the `musloop-data` volume.
+
 ## Running a session
 
 1. Set up the player for a moment of the game (part, layers, speed, reverb) and hit

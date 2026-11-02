@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import scipy.signal
 import scipy.ndimage
@@ -75,6 +77,7 @@ def _estimate_downbeat_phase(onset_env: np.ndarray, beat_frames: np.ndarray,
 # triple (3) grouping: 2/4 is folded into 4 (two bars of 2/4 loop the same way
 # as one of 4/4) and 6/8 counted in eighths shows up as 3 (or as 2 when the
 # beat tracker locks onto dotted quarters). 5 and 7 are manual-only.
+log = logging.getLogger("musloop")
 METERS = (2, 3, 4, 5, 6, 7)
 AUTO_METERS = (3, 4)
 
@@ -236,6 +239,65 @@ def clean_beats(beats, max_ratio: float = 0.6) -> np.ndarray:
     return np.asarray(filled)
 
 
+def beats_too_sparse(beats, downbeats) -> bool:
+    """The beat tracker marked only bar starts (1 beat per bar) or every
+    other beat (tempo below ~50 BPM): the bars have no beat ticks inside."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 8:
+        return False
+    bpm = 60.0 / float(np.median(np.diff(b)))
+    db = np.asarray(downbeats or [], dtype=float)
+    if len(db) >= 4:
+        cnt = np.diff(np.searchsorted(b, db - 1e-3))
+        cnt = cnt[cnt > 0]
+        if len(cnt) and float(np.median(cnt)) <= 1:
+            return True
+    return bpm < 50
+
+
+def audio_beat_period(y: np.ndarray, sr: int) -> float:
+    """Beat period (s) from the audio (librosa's tracker, as the fast engine)."""
+    on = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
+    _t, bf = librosa.beat.beat_track(onset_envelope=on, sr=sr, hop_length=HOP, trim=False)
+    bt = librosa.frames_to_time(bf, sr=sr, hop_length=HOP)
+    return float(np.median(np.diff(bt))) if len(bt) > 3 else 0.0
+
+
+def densify_beats(beats, downbeats, audio_period: float) -> np.ndarray:
+    """Split every neural beat interval into k beats (see beats_too_sparse).
+    k comes from the audio's beat period, folded into 2..6; if the audio
+    doesn't help, 4 per bar (beats == bar starts) or 2 (half-rate beats).
+    The neural beats stay where they are, so bar lines don't move."""
+    b = np.asarray(beats, dtype=float)
+    if len(b) < 2:
+        return b
+    pn = float(np.median(np.diff(b)))
+    db = np.asarray(downbeats or [], dtype=float)
+    one_per_bar = False
+    if len(db) >= 4:
+        cnt = np.diff(np.searchsorted(b, db - 1e-3))
+        cnt = cnt[cnt > 0]
+        one_per_bar = bool(len(cnt) and float(np.median(cnt)) <= 1)
+    k = int(round(pn / audio_period)) if audio_period > 0 else 0
+    while k > 6 and k % 2 == 0:
+        k //= 2
+    if one_per_bar:
+        if k == 5 or not 2 <= k <= 6:
+            k = 4
+    else:
+        if not 2 <= k <= 4:
+            k = 2
+    out = []
+    for i in range(len(b) - 1):
+        a, z = b[i], b[i + 1]
+        if z - a > 1.6 * pn:          # a hole: fill_beat_gaps handles it
+            out.append(a)
+            continue
+        out.extend(a + (z - a) * j / k for j in range(k))
+    out.append(b[-1])
+    return np.asarray(out)
+
+
 def beat_coverage(beats, duration: float) -> float:
     """Share of the track covered by normally spaced beats (0..1). A beat
     tracker that loses the beat in quiet / rubato passages leaves holes."""
@@ -333,7 +395,7 @@ def beats_are_regular(beats, tol: float = 0.4) -> bool:
 
 
 def repair_grid(beats, downbeats, beats_per_bar: int | None = None,
-                duration: float | None = None) -> dict | None:
+                duration: float | None = None, audio_period: float | None = None) -> dict | None:
     """Fix a saved markup's beat / bar grid without re-analysing the audio:
     clean the beats, rebuild an even bar grid that follows the old downbeats'
     phase. Returns {"beats", "downbeats", "beats_per_bar"} or None if the grid
@@ -343,13 +405,18 @@ def repair_grid(beats, downbeats, beats_per_bar: int | None = None,
     if len(b) < 8:
         return None
     gappy = bool(duration) and has_beat_gaps(b, float(duration))
-    if not gappy and beats_are_regular(b) and grid_is_regular(db, b):
+    sparse = audio_period is not None and beats_too_sparse(b, db)
+    if not gappy and not sparse and beats_are_regular(b) and grid_is_regular(db, b):
         return None
-    cb = clean_beats(b)
+    cb = clean_beats(b) if not sparse else b
+    if sparse:
+        cb = densify_beats(cb, db, float(audio_period or 0))
     bpb = int(beats_per_bar) if beats_per_bar in METERS else None
     if bpb is None:
         m = meter_from_downbeats(cb.tolist(), db.tolist())
-        bpb = m["beats_per_bar"] if m and m["beats_per_bar"] in (3, 4, 6) else 4
+        bpb = m["beats_per_bar"] if m and m["beats_per_bar"] in (2, 3, 4, 6) else 4
+        if bpb == 2 and sparse:
+            bpb = 4
     if duration and has_beat_gaps(cb, float(duration)):
         cb = fill_beat_gaps(cb, float(duration), db, bpb)
     ndb, _ = regular_downbeats(cb, db, bpb)
@@ -469,7 +536,14 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     tempo = _snap_tempo(float(deep.get("bpm") or 120.0))
     # neural beats can contain spurious extra beats / holes -> uneven bars
     raw_downbeats = list(downbeats)
-    if len(beats) >= 8 and (not grid_is_regular(downbeats, beats) or not beats_are_regular(beats)):
+    if len(beats) >= 8 and beats_too_sparse(beats, downbeats):
+        # only bar starts (or every other beat) marked: split them using the
+        # audio's beat period, so bars get their beats back
+        n0 = len(beats)
+        beats = densify_beats(beats, downbeats, audio_beat_period(y, sr)).tolist()
+        tempo = _snap_tempo(float(60.0 / np.median(np.diff(beats))))
+        log.info("deep merge: sparse neural beats (%d), split into %d", n0, len(beats))
+    elif len(beats) >= 8 and (not grid_is_regular(downbeats, beats) or not beats_are_regular(beats)):
         beats = clean_beats(beats).tolist()
 
     lost = len(beats) < 16 or beat_coverage(beats, duration) < 0.3
@@ -619,7 +693,7 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
         "meter": meter,
         "beat_accents": accents,
         "downbeats_auto": downbeats_auto,
-        "grid_v": 3,
+        "grid_v": 4,
     }
 
 

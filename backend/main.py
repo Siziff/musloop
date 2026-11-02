@@ -18,13 +18,26 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .analysis import analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats, repair_grid
+from .analysis import (analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats, repair_grid,
+                       beats_too_sparse, audio_beat_period)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# MUSLOOP_DATA: where tracks / markups / projects live (Docker: a volume)
-UPLOAD_DIR = os.path.abspath(os.environ.get("MUSLOOP_DATA") or os.environ.get("MUSSLOP_DATA") or os.path.join(BASE_DIR, "uploads"))
+# The library: one folder per track, named like the track (backend/library.py).
+#   native: <repo>/library   MUSLOOP_LIBRARY overrides it
+#   Docker: MUSLOOP_DATA=/data -> /data/library (the volume)
+# App state (projects, music folders, temp files) lives in <library>/.musloop.
+_DATA = os.environ.get("MUSLOOP_DATA") or os.environ.get("MUSSLOP_DATA")
+LIBRARY_DIR = os.path.abspath(os.environ.get("MUSLOOP_LIBRARY")
+                              or (os.path.join(_DATA, "library") if _DATA else os.path.join(BASE_DIR, "library")))
+STATE_DIR = os.path.join(LIBRARY_DIR, ".musloop")
+# where older versions kept everything flat (<id>.mp3 + <id>.json): moved
+# into the library on start
+LEGACY_DIR = os.path.abspath(_DATA) if _DATA else os.path.join(BASE_DIR, "uploads")
+UPLOAD_DIR = STATE_DIR   # temp / helper files (ffmpeg shim, downloads)
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(STATE_DIR, exist_ok=True)
+
+from . import library as lib  # noqa: E402
 
 
 def _find_ffmpeg() -> str:
@@ -142,32 +155,62 @@ MIME = {
 }
 
 
-def _meta_path(track_id: str) -> str:
-    return os.path.join(UPLOAD_DIR, f"{track_id}.json")
+def _save(track: dict) -> None:
+    lib.save(track)
+
+
+def _sync_library() -> None:
+    lib.sync(TRACKS, LIBRARY_DIR)
 
 
 def _restore_tracks() -> None:
-    """Restore the track registry after a server restart (from meta files)."""
-    for fn in os.listdir(UPLOAD_DIR):
-        if not fn.endswith(".json"):
-            continue
+    """Move tracks of older versions into the library, then read it."""
+    try:
+        lib.migrate_legacy(LEGACY_DIR, LIBRARY_DIR, STATE_DIR)
+    except Exception as e:  # noqa: BLE001
+        log.warning("library: moving old tracks failed: %s", e)
+    _sync_library()
+    log.info("library: %d tracks in %s", len(TRACKS), LIBRARY_DIR)
+
+
+def _wav(track: dict) -> str:
+    """Analysis WAV (mono 22 kHz), re-created if it was deleted (cache/)."""
+    w = track.get("wav") or lib.default_wav(track)
+    if not os.path.exists(w):
+        os.makedirs(os.path.dirname(w), exist_ok=True)
         try:
-            with open(os.path.join(UPLOAD_DIR, fn)) as f:
-                meta = json.load(f)
-            # data folder moved (another checkout, Docker volume): files keep
-            # their names, so look for them next to the meta file
-            for k in ("orig", "wav"):
-                if meta.get(k) and not os.path.exists(meta[k]):
-                    moved = os.path.join(UPLOAD_DIR, os.path.basename(meta[k]))
-                    if os.path.exists(moved):
-                        meta[k] = moved
-            if os.path.exists(meta["orig"]) and os.path.exists(meta["wav"]):
-                TRACKS[meta["id"]] = meta
-        except Exception:
-            pass
+            _to_wav(track["orig"], w)
+        except subprocess.CalledProcessError:
+            raise HTTPException(400, "Failed to decode the file (ffmpeg)")
+        track["wav"] = w
+        _save(track)
+    return w
 
 
-_restore_tracks()
+def _add_track(src: str, name: str, move: bool = False, **extra) -> dict:
+    """Put an audio file into the library as a new track folder."""
+    ext = os.path.splitext(src)[1].lower()
+    d = lib.new_dir(LIBRARY_DIR, name, incoming=True)
+    orig = lib.audio_path(d, name, ext)
+    try:
+        (shutil.move if move else shutil.copyfile)(src, orig)
+        meta = {"id": uuid.uuid4().hex[:12], "orig": orig, "name": name, "dir": d,
+                "mime": MIME.get(ext, "application/octet-stream"),
+                "uploaded_at": int(__import__("time").time()), **extra}
+        meta["wav"] = lib.default_wav(meta)
+        if meta["wav"] != orig:
+            os.makedirs(os.path.dirname(meta["wav"]), exist_ok=True)
+            _to_wav(orig, meta["wav"])
+    except subprocess.CalledProcessError:
+        shutil.rmtree(d, ignore_errors=True)
+        raise HTTPException(400, "Failed to decode the file (ffmpeg)")
+    except Exception:
+        shutil.rmtree(d, ignore_errors=True)
+        raise
+    _save(meta)
+    TRACKS[meta["id"]] = meta
+    lib.done_incoming(d)
+    return meta
 
 
 def _to_wav(src: str, dst: str) -> None:
@@ -176,6 +219,9 @@ def _to_wav(src: str, dst: str) -> None:
         [FFMPEG, "-y", "-i", src, "-ac", "1", "-ar", "22050", dst],
         check=True, capture_output=True,
     )
+
+
+_restore_tracks()
 
 
 @app.get("/api/health")
@@ -191,37 +237,24 @@ async def upload(file: UploadFile = File(...)):
     if ext not in ALLOWED_EXT:
         raise HTTPException(400, f"Unsupported format: {ext}")
 
-    track_id = uuid.uuid4().hex[:12]
-    orig_path = os.path.join(UPLOAD_DIR, f"{track_id}{ext}")
-    with open(orig_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    # WAV (mono/22050) - for server-side analysis only
-    wav_path = os.path.join(UPLOAD_DIR, f"{track_id}.analysis.wav")
-    if ext == ".wav":
-        wav_path = orig_path
-    else:
-        try:
-            _to_wav(orig_path, wav_path)
-        except subprocess.CalledProcessError:
-            os.remove(orig_path)
-            raise HTTPException(400, "Failed to decode the file (ffmpeg)")
-
-    meta = {"id": track_id, "orig": orig_path, "wav": wav_path,
-            "name": file.filename, "mime": MIME.get(ext, "application/octet-stream"),
-            "uploaded_at": int(__import__("time").time())}
-    TRACKS[track_id] = meta
-    with open(_meta_path(track_id), "w") as f:
-        json.dump(meta, f)
-
-    size = os.path.getsize(orig_path)
-    log.info("upload: '%s' -> %s (%.1f MB)", file.filename, track_id, size / 1e6)
-    return {"track_id": track_id, "name": file.filename, "size": size}
+    import tempfile
+    name = os.path.basename((file.filename or "").replace("\\", "/")) or f"track{ext}"
+    with tempfile.NamedTemporaryFile(dir=STATE_DIR, suffix=ext, delete=False) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+    try:
+        meta = _add_track(tmp.name, name, move=True)
+    finally:
+        if os.path.exists(tmp.name):
+            os.remove(tmp.name)
+    size = os.path.getsize(meta["orig"])
+    log.info("upload: '%s' -> library/%s (%.1f MB)", name, os.path.basename(meta["dir"]), size / 1e6)
+    return {"track_id": meta["id"], "name": meta["name"], "size": size}
 
 
 @app.get("/api/tracks")
 def list_tracks():
     """History of uploaded tracks (for re-opening with saved markup)."""
+    _sync_library()   # folders added / removed by hand in the library
     items = []
     for tid, m in TRACKS.items():
         items.append({
@@ -245,8 +278,7 @@ def toggle_favorite(track_id: str, body: dict = Body(...)):
     if not track:
         raise HTTPException(404, "Track not found")
     track["favorite"] = bool(body.get("favorite"))
-    with open(_meta_path(track_id), "w") as f:
-        json.dump(track, f)
+    _save(track)
     return {"ok": True, "favorite": track["favorite"]}
 
 
@@ -278,8 +310,8 @@ def rename_track(track_id: str, body: dict = Body(...)):
     track["name"] = clean_track_name(body.get("name"), track.get("name"))
     if "favorite" in body:
         track["favorite"] = bool(body.get("favorite"))
-    with open(_meta_path(track_id), "w") as f:
-        json.dump(track, f)
+    lib.rename_dir(track, LIBRARY_DIR)   # library/<new name>/<new name>.mp3
+    _save(track)
     log.info("track %s renamed to %r", track_id, track["name"])
     return {"ok": True, "name": track["name"], "favorite": bool(track.get("favorite"))}
 
@@ -291,8 +323,7 @@ def save_markup(track_id: str, markup: dict = Body(...)):
     if not track:
         raise HTTPException(404, "Track not found")
     track["markup"] = markup
-    with open(_meta_path(track_id), "w") as f:
-        json.dump(track, f)
+    _save(track)
     return {"ok": True}
 
 
@@ -306,16 +337,22 @@ def get_markup(track_id: str):
     # missing beats gave bars of 1..9 beats. Repair the grid once (parts and
     # scenes are kept), save it back.
     # v3: also holes where the beat tracker lost the beat (SongFormer runs)
-    if isinstance(markup, dict) and markup.get("beats") and (markup.get("grid_v") or 0) < 3:
+    # v4: also beats marked only on bar starts / at half rate (no beat ticks)
+    if isinstance(markup, dict) and markup.get("beats") and (markup.get("grid_v") or 0) < 4:
         try:
+            period = None
+            if beats_too_sparse(markup.get("beats"), markup.get("downbeats")):
+                import librosa as _lr
+                _y, _sr = _lr.load(_wav(track), sr=22050, mono=True)
+                period = audio_beat_period(_y, _sr)
             fixed = repair_grid(markup.get("beats"), markup.get("downbeats"),
                                 markup.get("beats_per_bar") if (markup.get("meter") or {}).get("source") == "manual" else None,
-                                markup.get("duration"))
+                                markup.get("duration"), period)
         except Exception as e:  # noqa: BLE001 - never block opening a track
             log.warning("markup %s: grid repair failed: %s", track_id, e)
             fixed = None
         markup = dict(markup)
-        markup["grid_v"] = 3
+        markup["grid_v"] = 4
         if fixed:
             log.info("markup %s: repaired beat grid (%d -> %d beats, %d bars, %d/bar)", track_id,
                      len(markup.get("beats") or []), len(fixed["beats"]), len(fixed["downbeats"]), fixed["beats_per_bar"])
@@ -325,8 +362,7 @@ def get_markup(track_id: str):
                 meter.update(beats_per_bar=fixed["beats_per_bar"], detected=fixed["beats_per_bar"], phase=0)
             markup["meter"] = meter or None
         track["markup"] = markup
-        with open(_meta_path(track_id), "w") as f:
-            json.dump(track, f)
+        _save(track)
     return {"markup": markup}
 
 
@@ -351,12 +387,7 @@ def delete_track(track_id: str):
     track = TRACKS.pop(track_id, None)
     if not track:
         raise HTTPException(404, "Track not found")
-    for p in {track.get("orig"), track.get("wav"), _meta_path(track_id)}:
-        if p and os.path.exists(p):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
+    lib.delete(track)
     return {"ok": True}
 
 
@@ -364,7 +395,7 @@ def delete_track(track_id: str):
 # The user points musloop at folders on disk; we list the audio files inside
 # and import them on demand (copy into uploads/ + analysis WAV), remembering
 # the source path so a file is imported only once.
-FOLDERS_PATH = os.path.join(UPLOAD_DIR, "folders.json")
+FOLDERS_PATH = os.path.join(STATE_DIR, "folders.json")
 
 
 def _load_folders() -> list[str]:
@@ -692,35 +723,18 @@ def import_from_folder(body: dict = Body(...)):
     ext = os.path.splitext(full)[1].lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(400, f"Unsupported format: {ext}")
-    track_id = uuid.uuid4().hex[:12]
-    orig_path = os.path.join(UPLOAD_DIR, f"{track_id}{ext}")
-    shutil.copyfile(full, orig_path)
-    wav_path = os.path.join(UPLOAD_DIR, f"{track_id}.analysis.wav")
-    if ext == ".wav":
-        wav_path = orig_path
-    else:
-        try:
-            _to_wav(orig_path, wav_path)
-        except subprocess.CalledProcessError:
-            os.remove(orig_path)
-            raise HTTPException(400, "Failed to decode the file (ffmpeg)")
-    meta = {"id": track_id, "orig": orig_path, "wav": wav_path,
-            "name": os.path.basename(full), "mime": MIME.get(ext, "application/octet-stream"),
-            "uploaded_at": int(__import__("time").time()), "source": full}
-    TRACKS[track_id] = meta
-    with open(_meta_path(track_id), "w") as f:
-        json.dump(meta, f)
-    log.info("import from folder: '%s' -> %s", full, track_id)
-    return {"track_id": track_id, "name": meta["name"], "existing": False}
+    meta = _add_track(full, os.path.basename(full), source=full)
+    log.info("import from folder: '%s' -> library/%s", full, os.path.basename(meta["dir"]))
+    return {"track_id": meta["id"], "name": meta["name"], "existing": False}
 
 
 # ----------------------------- Projects (set lists) -------------------------
 # A project groups tracks (and their scenes) for one session / level:
 #   {"id", "name", "created_at", "updated_at",
 #    "groups": [{"id", "name", "items": [{"id", "track_id", "scene_id"|null, "note"}]}]}
-# Stored as uploads/projects/{id}.json; the markup (segments + scenes) stays
+# Stored as library/.musloop/projects/{id}.json; the markup (segments + scenes) stays
 # with the track, the project only references it.
-PROJECTS_DIR = os.path.join(UPLOAD_DIR, "projects")
+PROJECTS_DIR = os.path.join(STATE_DIR, "projects")
 os.makedirs(PROJECTS_DIR, exist_ok=True)
 
 
@@ -865,7 +879,7 @@ def analyze_track(track_id: str,
             raise HTTPException(503, "SongFormer unavailable: run setup-ai-songformer.sh (Windows: setup-ai-songformer.bat) and restart the server")
         result = _songformer_analyze(track, beats_per_bar)
     else:
-        result = analyze(track["wav"], n_segments=n_segments,
+        result = analyze(_wav(track), n_segments=n_segments,
                          beats_per_bar=beats_per_bar)
     log.info("analyze: %s done in %.1fs, %d parts, tempo %.1f, meter %s/%s",
              track_id, _time.time() - _t0, len(result["segments"]),
@@ -952,15 +966,14 @@ def _run_engine(track: dict, cache_key: str, script: str, py: str,
             if os.path.exists(out_json):
                 os.remove(out_json)
         track[cache_key] = cached
-        with open(_meta_path(track["id"]), "w") as f:
-            json.dump(track, f)
+        _save(track)
     return cached
 
 
 def _deep_analyze(track: dict, beats_per_bar: int | None = None) -> dict:
     """allin1 in a separate venv (subprocess); the result is cached in meta."""
     cached = _run_engine(track, "deep_raw", "deep_analyze.py", DEEP_PY)
-    result = analyze_deep_merge(track["wav"], cached, beats_per_bar)
+    result = analyze_deep_merge(_wav(track), cached, beats_per_bar)
     result["engine"] = "deep"
     return result
 
@@ -969,7 +982,7 @@ def _songformer_analyze(track: dict, beats_per_bar: int | None = None) -> dict:
     """SongFormer + Beat This! in its own venv; merged with our loop metrics."""
     cached = _run_engine(track, "songformer_raw", "songformer_analyze.py",
                          SONGFORMER_PY, {"SONGFORMER_SRC": SONGFORMER_SRC})
-    result = analyze_deep_merge(track["wav"], cached, beats_per_bar)
+    result = analyze_deep_merge(_wav(track), cached, beats_per_bar)
     result["engine"] = "songformer"
     return result
 
@@ -986,7 +999,8 @@ def get_audio(track_id: str, transcode: int = Query(0)):
     if transcode:
         safe = track.get("safe_wav")
         if not safe or not os.path.exists(safe):
-            safe = os.path.join(UPLOAD_DIR, f"{track_id}.playback.wav")
+            safe = os.path.join(track["dir"], "cache", "playback.wav")
+            os.makedirs(os.path.dirname(safe), exist_ok=True)
             try:
                 subprocess.run(
                     [FFMPEG, "-y", "-vn", "-i", track["orig"],
@@ -996,8 +1010,7 @@ def get_audio(track_id: str, transcode: int = Query(0)):
             except subprocess.CalledProcessError:
                 raise HTTPException(500, "Transcode failed (ffmpeg)")
             track["safe_wav"] = safe
-            with open(_meta_path(track_id), "w") as f:
-                json.dump(track, f)
+            _save(track)
         return FileResponse(safe, media_type="audio/wav")
     return FileResponse(track["orig"], media_type=track["mime"])
 
@@ -1018,7 +1031,7 @@ def detect_meter(track_id: str, body: dict = Body(...)):
     if len(beats) < 8:
         raise HTTPException(400, "Not enough beats to detect the meter")
     neural = body.get("engine") in ("deep", "songformer")
-    return detect_meter_for_beats(track["wav"], beats, downbeats, neural)
+    return detect_meter_for_beats(_wav(track), beats, downbeats, neural)
 
 
 @app.post("/api/loopability/{track_id}")
@@ -1027,11 +1040,15 @@ def loopability(track_id: str, segments: list[dict] = Body(...)):
     track = TRACKS.get(track_id)
     if not track:
         raise HTTPException(404, "Track not found")
-    return {"loopability": loop_quality(track["wav"], segments)}
+    return {"loopability": loop_quality(_wav(track), segments)}
 
 
 STEM_NAMES = ("drums", "bass", "other", "vocals")
 STEM_JOBS: dict[str, dict] = {}  # track_id -> {"status", "progress", "error"}
+
+
+def _stem_dir(track: dict) -> str:
+    return os.path.join(track["dir"], "stems")
 
 
 def _stems_done(stem_dir: str) -> bool:
@@ -1087,8 +1104,7 @@ def _run_demix(track_id: str, orig: str, stem_dir: str) -> None:
         track = TRACKS.get(track_id)
         if track is not None:
             track["stems"] = stem_dir
-            with open(_meta_path(track_id), "w") as f:
-                json.dump(track, f)
+            _save(track)
         job["status"] = "done"
         job["progress"] = 100
     except Exception as e:  # noqa: BLE001
@@ -1106,7 +1122,7 @@ def make_stems(track_id: str):
         raise HTTPException(503, "Stems unavailable: install an AI engine "
                                  "(setup-ai-songformer or setup-ai-allin1)")
 
-    stem_dir = os.path.join(UPLOAD_DIR, f"{track_id}.stems")
+    stem_dir = _stem_dir(track)
     if _stems_done(stem_dir):
         STEM_JOBS[track_id] = {"status": "done", "progress": 100, "error": None}
         return {"ok": True, "status": "done", "stems": list(STEM_NAMES)}
@@ -1124,8 +1140,8 @@ def make_stems(track_id: str):
 
 @app.get("/api/stems/{track_id}/status")
 def stems_status(track_id: str):
-    stem_dir = os.path.join(UPLOAD_DIR, f"{track_id}.stems")
-    if _stems_done(stem_dir):
+    track = TRACKS.get(track_id)
+    if track and _stems_done(_stem_dir(track)):
         return {"status": "done", "progress": 100}
     job = STEM_JOBS.get(track_id)
     if not job:
@@ -1138,8 +1154,9 @@ def stems_status(track_id: str):
 def get_stem(track_id: str, stem: str):
     if stem not in STEM_NAMES:
         raise HTTPException(404, "No such stem")
-    path = os.path.join(UPLOAD_DIR, f"{track_id}.stems", f"{stem}.wav")
-    if not os.path.exists(path):
+    track = TRACKS.get(track_id)
+    path = os.path.join(_stem_dir(track), f"{stem}.wav") if track else ""
+    if not path or not os.path.exists(path):
         raise HTTPException(404, "Stem is not ready")
     return FileResponse(path, media_type="audio/wav")
 
@@ -1182,7 +1199,7 @@ def import_url(body: dict = Body(...)):
 
     log.info("import_url: start %s (yt-dlp: %s)", url, " ".join(ytdlp))
     track_id = uuid.uuid4().hex[:12]
-    out_tpl = os.path.join(UPLOAD_DIR, f"{track_id}.%(ext)s")
+    out_tpl = os.path.join(STATE_DIR, f"dl-{track_id}.%(ext)s")
 
     # extra yt-dlp options from .env, e.g. MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"
     import shlex
@@ -1243,26 +1260,24 @@ def import_url(body: dict = Body(...)):
     # --print outputs the title and path; filter out service [lines]
     printed = [l for l in lines if not l.startswith("[")]
     title = printed[0] if printed else "track"
-    orig_path = os.path.join(UPLOAD_DIR, f"{track_id}.mp3")
+    orig_path = os.path.join(STATE_DIR, f"dl-{track_id}.mp3")
     if not os.path.exists(orig_path):
         raise HTTPException(500, "File did not appear after download")
-    log.info("import_url: downloaded '%s' -> %s (%.1f MB)", title, orig_path,
-             os.path.getsize(orig_path) / 1e6)
-
-    wav_path = os.path.join(UPLOAD_DIR, f"{track_id}.analysis.wav")
+    log.info("import_url: downloaded '%s' (%.1f MB)", title, os.path.getsize(orig_path) / 1e6)
     try:
-        _to_wav(orig_path, wav_path)
-    except subprocess.CalledProcessError:
-        os.remove(orig_path)
-        raise HTTPException(400, "Failed to decode the downloaded audio")
-
-    meta = {"id": track_id, "orig": orig_path, "wav": wav_path,
-            "name": f"{title}.mp3", "mime": "audio/mpeg",
-            "uploaded_at": int(__import__("time").time())}
-    TRACKS[track_id] = meta
-    with open(_meta_path(track_id), "w") as f:
-        json.dump(meta, f)
-    return {"track_id": track_id, "name": meta["name"]}
+        try:
+            nice = clean_track_name(title)
+        except HTTPException:
+            nice = "track"
+        meta = _add_track(orig_path, f"{nice}.mp3", move=True, source_url=url)
+    except HTTPException as e:
+        if e.status_code == 400 and "decode" in str(e.detail):
+            raise HTTPException(400, "Failed to decode the downloaded audio")
+        raise
+    finally:
+        if os.path.exists(orig_path):
+            os.remove(orig_path)
+    return {"track_id": meta["id"], "name": meta["name"]}
 
 
 def _content_disposition(filename: str) -> str:
