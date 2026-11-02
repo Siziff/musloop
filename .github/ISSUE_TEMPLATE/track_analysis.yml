@@ -1,0 +1,65 @@
+name: Track analysis problem
+description: Bars, beats, meter or sections detected wrong on a track
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The most useful thing here is a way to get the same audio. A link to the track
+        (YouTube, Bandcamp, a free music site) or its exact name and artist is enough.
+        Please don't attach copyrighted audio files.
+  - type: input
+    id: track
+    attributes:
+      label: Track
+      description: Link or "Artist - Title". If the file is your own, say so.
+      placeholder: "https://www.youtube.com/watch?v=... / Splendorius - Oblivion Roses"
+    validations:
+      required: true
+  - type: checkboxes
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - label: Bar grid is uneven (bars of different length, numbers jump)
+        - label: Bar lines are shifted (the downbeat is not on "one")
+        - label: Wrong meter (e.g. 4/4 instead of 3/4)
+        - label: Wrong tempo (BPM)
+        - label: Section boundaries in the wrong place
+        - label: Section names are wrong
+        - label: A loop clicks or jumps at the seam
+  - type: textarea
+    id: where
+    attributes:
+      label: Where in the track
+      description: Times help a lot. What you hear vs. what musloop shows.
+      placeholder: |
+        From 0:45 to 0:55 the bars are shorter. I hear 4 beats per bar all the way, steady tempo.
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Analysis engine
+      options:
+        - Fast (built-in)
+        - SongFormer
+        - All-In-One
+    validations:
+      required: true
+  - type: input
+    id: meter
+    attributes:
+      label: Meter shown in musloop
+      description: The badge next to the BPM. Did you change it by hand?
+      placeholder: "4/4 detected / 2/4 set by hand"
+  - type: textarea
+    id: markup
+    attributes:
+      label: Markup file
+      description: Files → ⤓ Markup downloads a `*.musloop.json`. Drag it here (rename to `.txt` if GitHub refuses `.json`). It has the beats and bars musloop found, without the audio.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Commit (`git rev-parse --short HEAD`) or Docker image tag."

@@ -1,0 +1,33 @@
+name: Idea or feature request
+description: Something musloop could do for your table or your game
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The situation, not the solution. What gets in the way today?
+      placeholder: |
+        At the table I switch between combat and exploration a lot. Finding the right part on the
+        laptop takes my eyes off the players.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working. Rough is fine.
+  - type: dropdown
+    id: who
+    attributes:
+      label: Where do you use musloop
+      options:
+        - At a TTRPG table (live)
+        - Building a game (export, engine integration)
+        - Both
+        - Other
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Other tools that do it, screenshots, sketches.

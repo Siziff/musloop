@@ -1,0 +1,55 @@
+name: Phone remote / Android app
+description: The phone can't connect, buttons don't work, the app misbehaves
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before reporting: the phone and the computer are on the **same Wi-Fi** (not a guest network),
+        the musloop tab is open on the computer, and the firewall allows musloop (Python) on private
+        networks. In Docker, port 8802 must be reachable.
+  - type: dropdown
+    id: client
+    attributes:
+      label: What do you use on the phone
+      options:
+        - Android app (musloop remote)
+        - Browser, QR link (/remote page)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what the phone and the computer showed. Exact error text helps.
+      placeholder: |
+        Scanned the QR code, the phone says "Can't reach the computer". The computer shows 0 phones.
+    validations:
+      required: true
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and version
+      placeholder: "Pixel 7, Android 15, app 0.1.0 / iPhone 14, iOS 26, Safari"
+    validations:
+      required: true
+  - type: dropdown
+    id: run
+    attributes:
+      label: How do you run musloop on the computer
+      options:
+        - run.sh / run.bat (native)
+        - Docker (light or AI image)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Computer OS and browser
+      placeholder: "Windows 11, Chrome 141"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The terminal output of musloop around the time it happened (lines with "remote:"). **Remove the key** (`#k=...`) from URLs before posting.
+      render: text
