@@ -15,7 +15,7 @@ Requirements: Android 7.0+, musloop on a computer in the same Wi-Fi.
 
 ## Install
 
-Download `musloop-remote-X.Y.Z.apk` from the repository's **Releases** on the phone, open it and allow
+Download `musloop-remote-X.Y.Z.apk` from the repository's [**Releases**](https://github.com/Siziff/musloop/releases?q=app-v) on the phone (latest: [app-v0.1.0](https://github.com/Siziff/musloop/releases/tag/app-v0.1.0)), open it and allow
 "Install unknown apps" for your browser or file manager when Android asks.
 
 ## Pair

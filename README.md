@@ -46,6 +46,15 @@ models have been downloaded. This is a personal passion project, shared freely.
 </p>
 <p align="center"><em>Live mode: play → cue a scene → pick another track (T) → it fades in and keeps playing → next track (]).</em></p>
 
+**Phone remote and Android app**
+- Run Live mode from your phone while the music plays on the computer: parts, scenes, Next /
+  Cancel / Fade, transition mode, track switching, volume. Scan the QR code in Live mode (**📱 Phone**)
+  and the phone's browser becomes the remote, nothing to install.
+- **Android app** [musloop remote 0.1.0](https://github.com/Siziff/musloop/releases/tag/app-v0.1.0)
+  ([APK](https://github.com/Siziff/musloop/releases/download/app-v0.1.0/musloop-remote-0.1.0.apk)):
+  finds musloop on your Wi-Fi by itself, remembers your computers and keeps the screen on.
+  See [Phone remote](#phone-remote).
+
 **Run a whole session from one screen**
 - **Live mode** (`L`) — a full-screen desk for the table: what's playing now, what comes next
   and in how many seconds, big pads for parts and scenes, **Next**, **Cancel** and **Fade out** (`F`).
@@ -296,11 +305,24 @@ Fade, transition mode, track switching and volume. Nothing to install on the pho
 2. On the computer: Live mode (`L`) → **📱 Phone**. A QR code appears.
 3. Scan it with the phone camera and open the link.
 
+### Android app
+
+Download **[musloop remote 0.1.0](https://github.com/Siziff/musloop/releases/tag/app-v0.1.0)**
+([`musloop-remote-0.1.0.apk`](https://github.com/Siziff/musloop/releases/download/app-v0.1.0/musloop-remote-0.1.0.apk))
+on the phone, open it and allow installing apps from your browser when Android asks. Android 7.0+.
+
+<p align="center">
+  <img src="assets/app/connect.png" alt="Connect screen: musloop found on the Wi-Fi, QR scan, manual address" width="240">
+  <img src="assets/app/remote.png" alt="Remote: now playing, transport, transition mode, scenes and parts" width="240">
+  <img src="assets/app/queued.png" alt="A part queued on the phone: Next up D1 in 17 s" width="240">
+</p>
+<p align="center"><em>Finds the computer on the Wi-Fi → controls Live mode → a part queued from the phone switches on the phrase.</em></p>
+
 - The sound plays in the musloop tab on the computer — keep it open. If it is closed or the
   computer sleeps, the phone says so and reconnects by itself when musloop is back.
 - Several phones can connect at once; they all see the same state.
-- **Android app** (optional): finds musloop on the Wi-Fi by itself, scans the QR code, keeps the
-  screen on — download the APK from Releases. See [`mobile/README.md`](mobile/README.md).
+- **Android app** (optional): finds musloop on the Wi-Fi by itself, scans the QR code, remembers
+  your computers, keeps the screen on. See [`mobile/README.md`](mobile/README.md).
 - **New code** in the QR panel cuts off every phone that has the old one.
 - Security: from the network only the remote page is reachable, and only with the key from the QR
   code. Files, folders, uploads and settings stay available on the computer only.
