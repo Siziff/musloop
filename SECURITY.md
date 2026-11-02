@@ -43,6 +43,10 @@ the same computer. Knowing what it trusts helps decide whether something is a vu
   (8802), which never gets full access whatever the source address.
 - **Discovery:** the server answers a UDP broadcast on port 8803 with its port and computer
   name. The answer has no key; pairing still needs the QR code.
+- **Websites in the user's browser** are not trusted, even though they run on this computer.
+  Requests and WebSockets from another site's page (`Origin`, `Sec-Fetch-Site`) get only what a
+  phone without the key gets. musloop answers only to `localhost`, IP addresses, this computer's
+  name, `MUSLOOP_PUBLIC_URL` and `MUSLOOP_ALLOWED_HOSTS`, which blocks DNS rebinding.
 - **`MUSLOOP_TRUST_NETWORK`** gives full access to the networks you list. That's by design:
   everyone on those networks is treated like this computer.
 

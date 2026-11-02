@@ -331,6 +331,15 @@
     cursor: pointer; white-space: nowrap;
   }
   .dropdown-item:hover { background: var(--panel); color: var(--accent); }
+  .name-pop { right: 0; min-width: 320px; padding: 12px; cursor: default; }
+  .name-pop label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .name-pop input { width: 100%; box-sizing: border-box; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 14px; outline: none; }
+  .name-pop input:focus { border-color: var(--accent); }
+  .name-pop .hint { font-size: 11.5px; margin: 6px 0 10px; white-space: normal; }
+  .name-pop .row { justify-content: flex-end; }
+  .seg-chip .ren { opacity: 0; }
+  .seg-chip:hover .ren { opacity: 1; }
 
   /* ---------- custom tooltips ---------- */
   .tip { position: relative; cursor: help; }
@@ -768,6 +777,12 @@ const STR = {
     history_title: 'История',
     library_title: 'Библиотека ★',
     fav_btn: 'В библиотеку',
+    name_label: 'Название трека',
+    name_save_lib: 'Сохранить в библиотеку',
+    name_save: 'Сохранить',
+    name_cancel: 'Отмена',
+    rename_tip: 'Переименовать трек',
+    name_hint: 'Так трек будет называться в библиотеке, проектах, сценах и при экспорте',
     fav_in_lib: 'В библиотеке',
     fav_add_tip: 'Сохранить в библиотеку — понравившиеся треки с разметкой всегда под рукой',
     fav_remove_tip: 'Убрать из библиотеки',
@@ -1031,6 +1046,12 @@ const STR = {
     history_title: 'History',
     library_title: 'Library ★',
     fav_btn: 'Add to library',
+    name_label: 'Track name',
+    name_save_lib: 'Save to library',
+    name_save: 'Save',
+    name_cancel: 'Cancel',
+    rename_tip: 'Rename the track',
+    name_hint: 'The name used in the library, projects, scenes and exports',
     fav_in_lib: 'In library',
     fav_add_tip: 'Save to library — keep favorite tracks with their markup at hand',
     fav_remove_tip: 'Remove from library',
@@ -1295,6 +1316,12 @@ const STR = {
     history_title: '历史记录',
     library_title: '收藏库 ★',
     fav_btn: '加入收藏库',
+    name_label: '音轨名称',
+    name_save_lib: '保存到收藏库',
+    name_save: '保存',
+    name_cancel: '取消',
+    rename_tip: '重命名音轨',
+    name_hint: '收藏库、项目、场景和导出中使用的名称',
     fav_in_lib: '已收藏',
     fav_add_tip: '保存到收藏库 — 随时快速打开喜欢的音轨及其标注',
     fav_remove_tip: '从收藏库移除',
@@ -2260,6 +2287,26 @@ class LoopPlayer {
     if (now < cur.t0) return cur.trackStart;
     return cur.trackStart + (now - cur.t0) * (this.rate || 1);
   }
+}
+
+// Track name form (Add to library / rename). Enter saves, Esc cancels.
+function NameForm({ ed, setEd, onSave, t, style }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) { ref.current.focus(); ref.current.select(); } }, [ed.track_id]);
+  return (
+    <div className="dropdown-menu name-pop" style={style} onClick={e => e.stopPropagation()}>
+      <label>{t.name_label}</label>
+      <input ref={ref} type="text" value={ed.value} maxLength={200}
+        onChange={e => setEd({ ...ed, value: e.target.value })}
+        onKeyDown={e => { if (e.key === 'Enter') onSave(); if (e.key === 'Escape') setEd(null); }} />
+      <div className="hint">{t.name_hint}</div>
+      <div className="row">
+        <button className="ghost" onClick={() => setEd(null)}>{t.name_cancel}</button>
+        <button className="primary name-save" disabled={!ed.value.trim()} onClick={onSave}>
+          {ed.fav ? '★ ' + t.name_save_lib : t.name_save}</button>
+      </div>
+    </div>
+  );
 }
 
 // ============================== Waveform ===================================
@@ -3337,6 +3384,30 @@ function App() {
     } catch (er) {}
   };
   const currentFav = history.find(h => h.track_id === trackId);
+  // name form: {track_id, value, fav} — "Add to library" asks for the name
+  // first (fav=true); ✎ renames a track that is already there (fav=false)
+  const [nameEdit, setNameEdit] = useState(null);
+  const baseName = n => (n || '').replace(/\.(mp3|wav|ogg|oga|opus|flac|m4a|aac|webm)$/i, '');
+  const openNameEdit = (e, item, fav, where = 'header') => {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    setNameEdit({ track_id: item.track_id, value: baseName(item.name), fav, where });
+  };
+  const saveNameEdit = async () => {
+    const ed = nameEdit;
+    if (!ed || !ed.value.trim()) return;
+    try {
+      const r = await fetch(`/api/tracks/${ed.track_id}/name`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ed.fav ? { name: ed.value, favorite: true } : { name: ed.value }),
+      });
+      if (r.ok) {
+        const j = await r.json();
+        if (ed.track_id === trackId) setTrackName(j.name);
+        setNameEdit(null);
+        loadHistory();
+      }
+    } catch (er) {}
+  };
 
   // --- Projects (set lists) ---------------------------------------------------
   // A project = groups of items; an item points at a track (and optionally a
@@ -3426,6 +3497,7 @@ function App() {
   };
   useEffect(() => { if (previewRef.current) previewRef.current.volume = volume; }, [volume]);
   useEffect(() => { if (!drawerOpen) stopFilePreview(); }, [drawerOpen]);
+  useEffect(() => { if (!drawerOpen) setNameEdit(ed => (ed && ed.where === 'drawer' ? null : ed)); }, [drawerOpen]);
   const seekFilePreview = (e, file) => {
     const a = previewRef.current; if (!a || previewPath !== file.path || !a.duration) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -4310,12 +4382,20 @@ function App() {
             </label>
           </div>
           <div className="row">
-            <button onClick={() => currentFav && toggleFavorite(null, currentFav)}
-              disabled={!currentFav}
-              title={currentFav && currentFav.favorite ? t.fav_remove_tip : t.fav_add_tip}
-              style={currentFav && currentFav.favorite ? { color: '#ffb84f', borderColor: '#ffb84f66' } : {}}>
-              {currentFav && currentFav.favorite ? '★ ' + t.fav_in_lib : '☆ ' + t.fav_btn}
-            </button>
+            <div className="dropdown">
+              <button className="fav-btn" onClick={() => currentFav && (currentFav.favorite
+                  ? toggleFavorite(null, currentFav)
+                  : (nameEdit && nameEdit.track_id === currentFav.track_id ? setNameEdit(null) : openNameEdit(null, currentFav, true)))}
+                disabled={!currentFav}
+                title={currentFav && currentFav.favorite ? t.fav_remove_tip : t.fav_add_tip}
+                style={currentFav && currentFav.favorite ? { color: '#ffb84f', borderColor: '#ffb84f66' } : {}}>
+                {currentFav && currentFav.favorite ? '★ ' + t.fav_in_lib : '☆ ' + t.fav_btn}
+              </button>
+              {currentFav && <button className="ghost rename-btn" title={t.rename_tip} style={{ marginLeft: 4 }}
+                onClick={e => nameEdit && nameEdit.track_id === currentFav.track_id ? setNameEdit(null) : openNameEdit(e, currentFav, false)}>✎</button>}
+              {nameEdit && nameEdit.where === 'header' && currentFav && nameEdit.track_id === currentFav.track_id && <NameForm
+                ed={nameEdit} setEd={setNameEdit} onSave={saveNameEdit} t={t} />}
+            </div>
             <div className="dropdown">
               <button className="ghost" onClick={() => setExportOpen(o => !o)}>
                 {t.files_menu} ▾
@@ -4791,16 +4871,23 @@ function App() {
                         title={t.history_open_tip}>
                         <span className="x" style={{ color: item.favorite ? '#ffb84f' : 'var(--muted)', fontSize: 14 }}
                           title={item.favorite ? t.fav_remove_tip : t.fav_add_tip}
-                          onClick={e => toggleFavorite(e, item)}>{item.favorite ? '★' : '☆'}</span>
+                          onClick={e => item.favorite ? toggleFavorite(e, item) : openNameEdit(e, item, true, 'drawer')}>{item.favorite ? '★' : '☆'}</span>
                         <span style={{ fontSize: 13 }}>{item.has_markup ? '💾' : '♫'}</span>
                         <span style={{ fontWeight: 600, maxWidth: 220, overflow: 'hidden',
                                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                         {item.duration != null && <span className="time">{fmt(item.duration)}</span>}
                         {item.n_segments > 0 && <span className="time">{item.n_segments} {t.history_parts}</span>}
+                        <span className="x ren" title={t.rename_tip}
+                          onClick={e => openNameEdit(e, item, false, 'drawer')}>✎</span>
                         <span className="x" title={t.history_del_tip}
                           onClick={e => deleteFromHistory(e, item)}>✕</span>
                       </div>
                     ))}
+                    {nameEdit && nameEdit.where === 'drawer' && group.items.some(it => it.track_id === nameEdit.track_id) &&
+                      <div className="dropdown" style={{ width: '100%' }}>
+                        <NameForm ed={nameEdit} setEd={setNameEdit} onSave={saveNameEdit} t={t}
+                          style={{ position: 'static', boxShadow: 'none', marginTop: 4, minWidth: 0 }} />
+                      </div>}
                   </div>}
                 </div>
               ))}

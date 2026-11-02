@@ -99,6 +99,12 @@ const STR = {
     history_title: 'История',
     library_title: 'Библиотека ★',
     fav_btn: 'В библиотеку',
+    name_label: 'Название трека',
+    name_save_lib: 'Сохранить в библиотеку',
+    name_save: 'Сохранить',
+    name_cancel: 'Отмена',
+    rename_tip: 'Переименовать трек',
+    name_hint: 'Так трек будет называться в библиотеке, проектах, сценах и при экспорте',
     fav_in_lib: 'В библиотеке',
     fav_add_tip: 'Сохранить в библиотеку — понравившиеся треки с разметкой всегда под рукой',
     fav_remove_tip: 'Убрать из библиотеки',
@@ -362,6 +368,12 @@ const STR = {
     history_title: 'History',
     library_title: 'Library ★',
     fav_btn: 'Add to library',
+    name_label: 'Track name',
+    name_save_lib: 'Save to library',
+    name_save: 'Save',
+    name_cancel: 'Cancel',
+    rename_tip: 'Rename the track',
+    name_hint: 'The name used in the library, projects, scenes and exports',
     fav_in_lib: 'In library',
     fav_add_tip: 'Save to library — keep favorite tracks with their markup at hand',
     fav_remove_tip: 'Remove from library',
@@ -626,6 +638,12 @@ const STR = {
     history_title: '历史记录',
     library_title: '收藏库 ★',
     fav_btn: '加入收藏库',
+    name_label: '音轨名称',
+    name_save_lib: '保存到收藏库',
+    name_save: '保存',
+    name_cancel: '取消',
+    rename_tip: '重命名音轨',
+    name_hint: '收藏库、项目、场景和导出中使用的名称',
     fav_in_lib: '已收藏',
     fav_add_tip: '保存到收藏库 — 随时快速打开喜欢的音轨及其标注',
     fav_remove_tip: '从收藏库移除',
@@ -1727,6 +1745,52 @@ class LoopPlayer {
     if (now < cur.t0) return cur.trackStart;
     return cur.trackStart + (now - cur.t0) * (this.rate || 1);
   }
+}
+
+// Track name form (Add to library / rename). Enter saves, Esc cancels.
+function NameForm({
+  ed,
+  setEd,
+  onSave,
+  t,
+  style
+}) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.focus();
+      ref.current.select();
+    }
+  }, [ed.track_id]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "dropdown-menu name-pop",
+    style: style,
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("label", null, t.name_label), /*#__PURE__*/React.createElement("input", {
+    ref: ref,
+    type: "text",
+    value: ed.value,
+    maxLength: 200,
+    onChange: e => setEd({
+      ...ed,
+      value: e.target.value
+    }),
+    onKeyDown: e => {
+      if (e.key === 'Enter') onSave();
+      if (e.key === 'Escape') setEd(null);
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, t.name_hint), /*#__PURE__*/React.createElement("div", {
+    className: "row"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => setEd(null)
+  }, t.name_cancel), /*#__PURE__*/React.createElement("button", {
+    className: "primary name-save",
+    disabled: !ed.value.trim(),
+    onClick: onSave
+  }, ed.fav ? '★ ' + t.name_save_lib : t.name_save)));
 }
 
 // ============================== Waveform ===================================
@@ -3107,6 +3171,46 @@ function App() {
     } catch (er) {}
   };
   const currentFav = history.find(h => h.track_id === trackId);
+  // name form: {track_id, value, fav} — "Add to library" asks for the name
+  // first (fav=true); ✎ renames a track that is already there (fav=false)
+  const [nameEdit, setNameEdit] = useState(null);
+  const baseName = n => (n || '').replace(/\.(mp3|wav|ogg|oga|opus|flac|m4a|aac|webm)$/i, '');
+  const openNameEdit = (e, item, fav, where = 'header') => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setNameEdit({
+      track_id: item.track_id,
+      value: baseName(item.name),
+      fav,
+      where
+    });
+  };
+  const saveNameEdit = async () => {
+    const ed = nameEdit;
+    if (!ed || !ed.value.trim()) return;
+    try {
+      const r = await fetch(`/api/tracks/${ed.track_id}/name`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(ed.fav ? {
+          name: ed.value,
+          favorite: true
+        } : {
+          name: ed.value
+        })
+      });
+      if (r.ok) {
+        const j = await r.json();
+        if (ed.track_id === trackId) setTrackName(j.name);
+        setNameEdit(null);
+        loadHistory();
+      }
+    } catch (er) {}
+  };
 
   // --- Projects (set lists) ---------------------------------------------------
   // A project = groups of items; an item points at a track (and optionally a
@@ -3272,6 +3376,9 @@ function App() {
   }, [volume]);
   useEffect(() => {
     if (!drawerOpen) stopFilePreview();
+  }, [drawerOpen]);
+  useEffect(() => {
+    if (!drawerOpen) setNameEdit(ed => ed && ed.where === 'drawer' ? null : ed);
   }, [drawerOpen]);
   const seekFilePreview = (e, file) => {
     const a = previewRef.current;
@@ -4694,15 +4801,30 @@ function App() {
     onChange: e => setSnap(e.target.checked)
   }), t.snap)), /*#__PURE__*/React.createElement("div", {
     className: "row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "dropdown"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => currentFav && toggleFavorite(null, currentFav),
+    className: "fav-btn",
+    onClick: () => currentFav && (currentFav.favorite ? toggleFavorite(null, currentFav) : nameEdit && nameEdit.track_id === currentFav.track_id ? setNameEdit(null) : openNameEdit(null, currentFav, true)),
     disabled: !currentFav,
     title: currentFav && currentFav.favorite ? t.fav_remove_tip : t.fav_add_tip,
     style: currentFav && currentFav.favorite ? {
       color: '#ffb84f',
       borderColor: '#ffb84f66'
     } : {}
-  }, currentFav && currentFav.favorite ? '★ ' + t.fav_in_lib : '☆ ' + t.fav_btn), /*#__PURE__*/React.createElement("div", {
+  }, currentFav && currentFav.favorite ? '★ ' + t.fav_in_lib : '☆ ' + t.fav_btn), currentFav && /*#__PURE__*/React.createElement("button", {
+    className: "ghost rename-btn",
+    title: t.rename_tip,
+    style: {
+      marginLeft: 4
+    },
+    onClick: e => nameEdit && nameEdit.track_id === currentFav.track_id ? setNameEdit(null) : openNameEdit(e, currentFav, false)
+  }, "\u270E"), nameEdit && nameEdit.where === 'header' && currentFav && nameEdit.track_id === currentFav.track_id && /*#__PURE__*/React.createElement(NameForm, {
+    ed: nameEdit,
+    setEd: setNameEdit,
+    onSave: saveNameEdit,
+    t: t
+  })), /*#__PURE__*/React.createElement("div", {
     className: "dropdown"
   }, /*#__PURE__*/React.createElement("button", {
     className: "ghost",
@@ -5572,7 +5694,7 @@ function App() {
       fontSize: 14
     },
     title: item.favorite ? t.fav_remove_tip : t.fav_add_tip,
-    onClick: e => toggleFavorite(e, item)
+    onClick: e => item.favorite ? toggleFavorite(e, item) : openNameEdit(e, item, true, 'drawer')
   }, item.favorite ? '★' : '☆'), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 13
@@ -5590,10 +5712,30 @@ function App() {
   }, fmt(item.duration)), item.n_segments > 0 && /*#__PURE__*/React.createElement("span", {
     className: "time"
   }, item.n_segments, " ", t.history_parts), /*#__PURE__*/React.createElement("span", {
+    className: "x ren",
+    title: t.rename_tip,
+    onClick: e => openNameEdit(e, item, false, 'drawer')
+  }, "\u270E"), /*#__PURE__*/React.createElement("span", {
     className: "x",
     title: t.history_del_tip,
     onClick: e => deleteFromHistory(e, item)
-  }, "\u2715")))))))), drawerTab === 'folders' && /*#__PURE__*/React.createElement("div", {
+  }, "\u2715"))), nameEdit && nameEdit.where === 'drawer' && group.items.some(it => it.track_id === nameEdit.track_id) && /*#__PURE__*/React.createElement("div", {
+    className: "dropdown",
+    style: {
+      width: '100%'
+    }
+  }, /*#__PURE__*/React.createElement(NameForm, {
+    ed: nameEdit,
+    setEd: setNameEdit,
+    onSave: saveNameEdit,
+    t: t,
+    style: {
+      position: 'static',
+      boxShadow: 'none',
+      marginTop: 4,
+      minWidth: 0
+    }
+  }))))))), drawerTab === 'folders' && /*#__PURE__*/React.createElement("div", {
     className: "drawer-section"
   }, /*#__PURE__*/React.createElement("div", {
     className: "hint",
