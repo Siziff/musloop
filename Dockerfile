@@ -45,6 +45,9 @@ ENV PATH="/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     MUSLOOP_DATA=/data \
+    MUSLOOP_IN_DOCKER=1 \
+    MUSLOOP_MAIN_TRUSTED=1 \
+    MUSLOOP_REMOTE_PORT=8802 \
     NUMBA_CACHE_DIR=/tmp/numba \
     PORT=8801
 
@@ -53,8 +56,9 @@ RUN touch frontend/index.prod.html frontend/app.js
 
 USER musloop
 VOLUME ["/data"]
-EXPOSE 8801
+EXPOSE 8801 8802
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD python -c "import os,urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/api/health', timeout=4)" || exit 1
 
-CMD ["sh", "-c", "exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
+# main app on 8801 + phone-remote-only listener on 8802 (see backend/serve.py)
+CMD ["python", "-m", "backend.serve"]

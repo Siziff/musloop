@@ -4,6 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 PORT="${1:-${PORT:-8801}}"
+export PORT   # the app announces this port to the phone app (discovery)
 
 # Use the local venv if present (created by ./setup.sh)
 if [ -x ".venv/bin/python" ]; then
@@ -38,6 +39,11 @@ fi
 command -v ffmpeg >/dev/null || echo "NOTE: system ffmpeg not found — using bundled copy (imageio-ffmpeg)" 
 python3 -c "import fastapi, uvicorn, librosa" 2>/dev/null || {
   echo "Dependencies are not installed. Run: ./setup.sh"; exit 1; }
+# packages added in later versions (phone remote): install them after a git pull
+if ! python3 -c "import websockets, segno" 2>/dev/null; then
+  echo "Installing new dependencies (requirements.txt) ..."
+  python3 -m pip install --quiet -r requirements.txt || { echo "Run: ./setup.sh"; exit 1; }
+fi
 if python3 -c "import yt_dlp" 2>/dev/null || command -v yt-dlp >/dev/null; then
   echo "URL import (yt-dlp): available"
 else
@@ -72,7 +78,7 @@ fi
 
 # JSX precompilation (optional: the built app.js ships in the repo).
 # A rebuild is only needed after editing frontend/index.html.
-if [ frontend/index.html -nt frontend/index.prod.html ] 2>/dev/null; then
+if [ frontend/index.html -nt frontend/index.prod.html ] || [ frontend/remote.src.js -nt frontend/remote.js ] 2>/dev/null; then
   python3 tools/build.py 2>/dev/null && echo "Frontend rebuilt (app.js)" \
     || echo "WARNING: index.html is newer than the build and quickjs is missing (pip install quickjs) — falling back to dev mode with in-browser Babel"
 fi

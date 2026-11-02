@@ -18,7 +18,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .analysis import analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats
+from .analysis import analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats, repair_grid
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # MUSLOOP_DATA: where tracks / markups / projects live (Docker: a volume)
@@ -267,7 +267,31 @@ def get_markup(track_id: str):
     track = TRACKS.get(track_id)
     if not track:
         raise HTTPException(404, "Track not found")
-    return {"markup": track.get("markup")}
+    markup = track.get("markup")
+    # markups saved before the beat-grid fix: neural beat lists with extra /
+    # missing beats gave bars of 1..9 beats. Repair the grid once (parts and
+    # scenes are kept), save it back.
+    if isinstance(markup, dict) and markup.get("beats") and not markup.get("grid_v"):
+        try:
+            fixed = repair_grid(markup.get("beats"), markup.get("downbeats"),
+                                markup.get("beats_per_bar") if (markup.get("meter") or {}).get("source") == "manual" else None)
+        except Exception as e:  # noqa: BLE001 - never block opening a track
+            log.warning("markup %s: grid repair failed: %s", track_id, e)
+            fixed = None
+        markup = dict(markup)
+        markup["grid_v"] = 2
+        if fixed:
+            log.info("markup %s: repaired beat grid (%d -> %d beats, %d bars, %d/bar)", track_id,
+                     len(markup.get("beats") or []), len(fixed["beats"]), len(fixed["downbeats"]), fixed["beats_per_bar"])
+            markup.update(fixed)
+            meter = dict(markup.get("meter") or {})
+            if meter.get("source") != "manual":
+                meter.update(beats_per_bar=fixed["beats_per_bar"], detected=fixed["beats_per_bar"], phase=0)
+            markup["meter"] = meter or None
+        track["markup"] = markup
+        with open(_meta_path(track_id), "w") as f:
+            json.dump(track, f)
+    return {"markup": markup}
 
 
 @app.get("/api/scenes")
@@ -1452,5 +1476,9 @@ def index():
         return FileResponse(prod, media_type="text/html")
     return FileResponse(dev, media_type="text/html")
 
+
+# phone remote (/remote, /ws/host, /ws/remote) + network access rules
+from . import remote as _remote  # noqa: E402
+_remote.register(app)
 
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

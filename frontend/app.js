@@ -186,6 +186,22 @@ const STR = {
     live_btn: 'Live-режим',
     live_tip: 'Полноэкранный пульт для сессии: крупные кнопки, без редактирования (клавиша L)',
     live_title: 'LIVE',
+    remote_btn: 'Телефон',
+    remote_tip: 'Управлять Live-режимом с телефона',
+    remote_title: 'Пульт на телефоне',
+    remote_step1: 'Подключите телефон к той же Wi-Fi-сети, что и этот компьютер.',
+    remote_step2: 'Наведите камеру телефона на QR-код и откройте ссылку.',
+    remote_step3: 'Управляйте частями, сценами и треками с телефона — музыка играет здесь.',
+    remote_connected: 'телефонов на связи: {n}',
+    remote_waiting: 'ждём телефон…',
+    remote_reset: 'Новый код',
+    remote_reset_tip: 'Сменить ключ: телефоны со старым QR-кодом отключатся',
+    remote_note: 'Не закрывайте эту вкладку: звук играет в ней. С телефона доступен только пульт — файлы, папки и настройки остаются на этом компьютере.',
+    remote_no_lan: 'Не удалось определить адрес этого компьютера в сети.',
+    remote_docker: 'musloop запущен в Docker и не видит адрес компьютера в сети.',
+    remote_need_ip: 'Введите IP этого компьютера →',
+    remote_ip_label: 'IP этого компьютера:',
+    remote_ip_how: 'Где посмотреть: Windows — ipconfig, macOS — Настройки → Wi-Fi → Подробнее, Linux — hostname -I.',
     live_prev_track: 'Предыдущий трек',
     live_next_track: 'Следующий трек',
     live_tracks_tip: 'Выбрать трек',
@@ -433,6 +449,22 @@ const STR = {
     live_btn: 'Live mode',
     live_tip: 'Full-screen session desk: big buttons, no editing (key L)',
     live_title: 'LIVE',
+    remote_btn: 'Phone',
+    remote_tip: 'Control Live mode from your phone',
+    remote_title: 'Phone remote',
+    remote_step1: 'Connect the phone to the same Wi-Fi network as this computer.',
+    remote_step2: 'Point the phone camera at the QR code and open the link.',
+    remote_step3: 'Control parts, scenes and tracks from the phone — the music plays here.',
+    remote_connected: 'phones connected: {n}',
+    remote_waiting: 'waiting for a phone…',
+    remote_reset: 'New code',
+    remote_reset_tip: 'Change the key: phones with the old QR code are disconnected',
+    remote_note: 'Keep this tab open: the sound plays here. The phone only gets the remote — files, folders and settings stay on this computer.',
+    remote_no_lan: 'Could not find this computer\'s network address.',
+    remote_docker: 'musloop runs in Docker and cannot see this computer\'s network address.',
+    remote_need_ip: 'Enter this computer\'s IP →',
+    remote_ip_label: 'This computer\'s IP:',
+    remote_ip_how: 'Where to find it: Windows — ipconfig, macOS — Settings → Wi-Fi → Details, Linux — hostname -I.',
     live_prev_track: 'Previous track',
     live_next_track: 'Next track',
     live_tracks_tip: 'Pick a track',
@@ -681,6 +713,22 @@ const STR = {
     live_btn: '现场模式',
     live_tip: '全屏演出台：大按钮，不可编辑（快捷键 L）',
     live_title: 'LIVE',
+    remote_btn: '手机',
+    remote_tip: '用手机控制现场模式',
+    remote_title: '手机遥控',
+    remote_step1: '让手机连接到与这台电脑相同的 Wi-Fi 网络。',
+    remote_step2: '用手机相机扫描二维码并打开链接。',
+    remote_step3: '在手机上控制段落、场景和音轨——音乐在这台电脑上播放。',
+    remote_connected: '已连接手机：{n}',
+    remote_waiting: '等待手机连接…',
+    remote_reset: '新代码',
+    remote_reset_tip: '更换密钥：使用旧二维码的手机将断开连接',
+    remote_note: '请勿关闭此标签页：声音在这里播放。手机只能使用遥控——文件、文件夹和设置保留在这台电脑上。',
+    remote_no_lan: '无法确定这台电脑的网络地址。',
+    remote_docker: 'musloop 运行在 Docker 中，看不到这台电脑的网络地址。',
+    remote_need_ip: '请输入这台电脑的 IP →',
+    remote_ip_label: '这台电脑的 IP：',
+    remote_ip_how: '查看方法：Windows — ipconfig，macOS — 设置 → Wi-Fi → 详细信息，Linux — hostname -I。',
     live_prev_track: '上一首',
     live_next_track: '下一首',
     live_tracks_tip: '选择音轨',
@@ -881,6 +929,12 @@ class LoopPlayer {
   }
   _ensureCtx() {
     if (!this.ctx) {
+      // iOS Safari: Web Audio follows the ring/silent switch (Chrome on iOS
+      // uses the 'playback' session and ignores it) -> "no sound in Safari,
+      // fine in Chrome" on the same phone. Ask for a media playback session.
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      } catch (e) {}
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.master = this.ctx.createGain();
       this.master.gain.value = this.volume != null ? this.volume : 1;
@@ -1690,7 +1744,8 @@ function Waveform({
   t,
   beginEdit,
   commitEdit,
-  aiWorking
+  aiWorking,
+  phraseBars
 }) {
   const canvasRef = useRef(null);
   const peaksRef = useRef(null);
@@ -1830,32 +1885,50 @@ function Waveform({
         ctx.lineTo(tx(b), H);
       }
       ctx.stroke();
-      // every 4 bars — a taller, more visible phrase tick + group number
+      // every phrase (phraseBars bars) — a taller, more visible tick + phrase number
+      const PB = Math.max(1, phraseBars || 4);
       ctx.strokeStyle = TC.phrase;
       ctx.beginPath();
-      for (let i = 0; i < downbeats.length; i += 4) {
+      for (let i = 0; i < downbeats.length; i += PB) {
         const b = downbeats[i];
         if (b < t0 || b > t1) continue;
         ctx.moveTo(tx(b), H - 44);
         ctx.lineTo(tx(b), H);
       }
       ctx.stroke();
-      // bar numbering: on the overview — every 4th (phrase number), when
-      // zoomed — every bar (its number); the stride is picked by pixel density.
+      // bar numbering: zoomed in — every bar (bar number), overview — every
+      // phrase (phrase number). Density from the MEDIAN bar width in view, not
+      // the first bar (an odd first bar made whole tracks switch modes).
+      // Labels that would collide with the previous one are skipped.
       // Collected here, drawn AFTER the waveform (readability).
-      const barPx = ((downbeats[1] || duration) - (downbeats[0] || 0)) / span * W;
+      let medBar = 0;
+      {
+        const ds = [];
+        for (let i = 1; i < downbeats.length; i++) {
+          if (downbeats[i] < t0 - 30 || downbeats[i - 1] > t1 + 30) continue;
+          ds.push(downbeats[i] - downbeats[i - 1]);
+        }
+        ds.sort((a, b) => a - b);
+        medBar = ds.length ? ds[Math.floor(ds.length / 2)] : 0;
+      }
+      const barPx = medBar / span * W;
       let stride = 0;
       if (barPx >= 22) stride = 1; // strong zoom: every bar
-      else if (barPx * 4 >= 26) stride = 4; // overview: every 4 bars
+      else if (barPx * PB >= 26) stride = PB; // overview: every phrase
       if (stride) {
+        let lastX = -Infinity;
         for (let i = 0; i < downbeats.length; i += stride) {
           const b = downbeats[i];
           if (b < t0 || b > t1) continue;
+          const x = tx(b) + 3;
+          const n = String(stride === 1 ? i + 1 : i / stride + 1);
+          if (x - lastX < n.length * 6 + 8) continue; // would overlap the previous number
           barNums.push({
-            x: tx(b) + 3,
-            n: String(stride === 1 ? i + 1 : i / 4 + 1),
+            x,
+            n,
             stride
           });
+          lastX = x;
         }
       }
     }
@@ -2006,7 +2079,7 @@ function Waveform({
       ctx.fill();
       ctx.lineWidth = 1;
     }
-  }, [segments, beats, downbeats, duration, playingSeg, player]);
+  }, [segments, beats, downbeats, duration, playingSeg, player, phraseBars]);
   useEffect(() => {
     let raf;
     const loop = () => {
@@ -2894,6 +2967,7 @@ function App() {
           downbeats_auto: analysis.downbeats_auto,
           n_suggested: analysis.n_suggested,
           n_max: analysis.n_max,
+          grid_v: analysis.grid_v || 2,
           engine: analysis.engine,
           segments,
           scenes
@@ -2944,6 +3018,7 @@ function App() {
           downbeats_auto: markup.downbeats_auto || null,
           n_suggested: markup.n_suggested,
           n_max: markup.n_max,
+          grid_v: markup.grid_v || null,
           segments: markup.segments,
           fallback: false,
           engine: markup.engine
@@ -4077,6 +4152,280 @@ function App() {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
+  // --- Phone remote: this tab is the "host" (it plays the audio) ---------------
+  // Connects to /ws/host, publishes a compact state whenever it changes and
+  // executes commands from phones (same actions as the Live-mode buttons).
+  const [remoteInfo, setRemoteInfo] = useState(null); // {key, urls, remotes, host}
+  const [remoteOpen, setRemoteOpen] = useState(false); // QR panel
+  // Docker: the container can't see the PC's LAN address — the user types it once
+  const [remoteIp, setRemoteIpState] = useState(() => localStorage.getItem('musloop_remote_ip') || '');
+  const setRemoteIp = v => {
+    setRemoteIpState(v);
+    localStorage.setItem('musloop_remote_ip', v.trim());
+  };
+  const remoteUrl = (() => {
+    if (!remoteInfo) return null;
+    if (remoteInfo.urls && remoteInfo.urls.length) return remoteInfo.urls[0];
+    const ip = remoteIp.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9.\-]*$/.test(ip)) return null;
+    return `http://${ip}:${remoteInfo.remote_port}/remote#k=${remoteInfo.key}`;
+  })();
+  const [remotes, setRemotes] = useState(0); // connected phones
+  const hostWsRef = useRef(null);
+  const remoteCtx = useRef({});
+  remoteCtx.current = {
+    segments,
+    scenes,
+    allScenes,
+    trackId,
+    trackName,
+    cueMode,
+    setCueMode,
+    applyScene,
+    applyRemoteScene,
+    liveTrackList,
+    liveCurIndex,
+    liveOpenTrack,
+    liveStepTrack,
+    volume,
+    setVolume,
+    analysis,
+    liveSwitching,
+    setLiveMode,
+    lang
+  };
+  const remoteState = () => {
+    const c = remoteCtx.current;
+    const segs = c.segments || [];
+    const tgt = player.pendingTarget();
+    const eta = player.transitionEta();
+    return {
+      v: 1,
+      lang: c.lang,
+      track: c.trackName || null,
+      trackId: c.trackId || null,
+      loaded: !!c.analysis,
+      switching: c.liveSwitching || null,
+      playing: !!player.playing,
+      index: player.segIndex,
+      pass: player.loopCount,
+      next: tgt,
+      eta: eta != null ? Math.max(0, Math.round(eta)) : null,
+      armed: !!player.advanceArmed,
+      mode: c.cueMode,
+      volume: c.volume,
+      parts: segs.map((s, i) => ({
+        i,
+        name: s.label,
+        loop: s.loop !== false,
+        color: SEG_COLORS[(s.group ? s.group.charCodeAt(0) - 65 : i) % SEG_COLORS.length]
+      })),
+      scenes: (c.scenes || []).map(sc => ({
+        id: sc.id,
+        name: sc.name,
+        part: sc.segIndex,
+        hotkey: sc.hotkey || null
+      })),
+      otherScenes: (c.allScenes || []).filter(sc => sc.track_id !== c.trackId).map(sc => ({
+        id: sc.id,
+        name: sc.name,
+        track: sc.track_name,
+        trackId: sc.track_id
+      })),
+      tracks: (c.liveTrackList.items || []).map((x, i) => ({
+        i,
+        key: x.key,
+        name: x.name,
+        sub: x.sub || '',
+        group: x.group || null
+      })),
+      trackIndex: c.liveCurIndex,
+      trackSource: c.liveTrackList.source
+    };
+  };
+  const remoteExec = (cmd, a = {}) => {
+    const c = remoteCtx.current;
+    const segs = c.segments || [];
+    switch (cmd) {
+      case 'play':
+        if (!c.analysis) return 'no_track';
+        if (!player.playing) player.play(Number.isInteger(a.index) ? a.index : player.segIndex || 0);
+        return true;
+      case 'stop':
+        player.stop();
+        return true;
+      case 'toggle':
+        player.playing ? player.stop() : c.analysis && player.play();
+        return true;
+      case 'next':
+        if (!player.playing) return 'not_playing';
+        player.advance();
+        return true;
+      case 'cancel':
+        player.cancelCue();
+        return true;
+      case 'fade':
+        if (player.playing) player.fadeOut(2.5);
+        return true;
+      case 'cue':
+        {
+          const i = a.index;
+          if (!Number.isInteger(i) || i < 0 || i >= segs.length) return 'bad_index';
+          if (!player.playing) player.play(i);else if (i === player.segIndex) player.cancelCue();else player.cue(i, a.mode || c.cueMode);
+          return true;
+        }
+      case 'scene':
+        {
+          const sc = (c.scenes || []).find(x => x.id === a.id);
+          if (sc) {
+            c.applyScene(sc);
+            return true;
+          }
+          const rs = (c.allScenes || []).find(x => x.id === a.id);
+          if (rs) {
+            c.applyRemoteScene(rs);
+            return true;
+          }
+          return 'no_scene';
+        }
+      case 'mode':
+        if (!['natural', 'soon', 'now'].includes(a.mode)) return 'bad_mode';
+        c.setCueMode(a.mode);
+        return true;
+      case 'track':
+        {
+          const it = (c.liveTrackList.items || [])[a.index];
+          if (!it) return 'bad_track';
+          c.liveOpenTrack(it);
+          return true;
+        }
+      case 'trackStep':
+        c.liveStepTrack(a.dir > 0 ? 1 : -1);
+        return true;
+      case 'volume':
+        {
+          const v = Math.max(0, Math.min(1, +a.value));
+          if (!isFinite(v)) return 'bad_volume';
+          c.setVolume(v);
+          return true;
+        }
+      case 'live':
+        c.setLiveMode(!!a.on);
+        return true;
+      default:
+        return 'unknown_cmd';
+    }
+  };
+  useEffect(() => {
+    let ws = null,
+      stop = false,
+      retry = null,
+      delay = 1000;
+    const connect = () => {
+      if (stop) return;
+      try {
+        ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/host`);
+      } catch (e) {
+        retry = setTimeout(connect, delay);
+        return;
+      }
+      hostWsRef.current = ws;
+      ws.onopen = () => {
+        delay = 1000;
+        try {
+          ws.send(JSON.stringify({
+            type: 'state',
+            state: remoteState()
+          }));
+        } catch (e) {}
+      };
+      ws.onmessage = ev => {
+        let m;
+        try {
+          m = JSON.parse(ev.data);
+        } catch (e) {
+          return;
+        }
+        if (m.type === 'presence') setRemotes(m.remotes || 0);else if (m.type === 'replaced') {
+          stop = true;
+        } // another musloop tab took over
+        else if (m.type === 'cmd') {
+          let res;
+          try {
+            res = remoteExec(m.cmd, m.args || {});
+          } catch (e) {
+            res = String(e && e.message || e);
+          }
+          try {
+            ws.send(JSON.stringify({
+              type: 'ack',
+              to: m.from,
+              seq: m.seq,
+              ok: res === true,
+              error: res === true ? null : res
+            }));
+          } catch (e) {}
+          force(x => x + 1);
+        }
+      };
+      ws.onclose = () => {
+        if (hostWsRef.current === ws) hostWsRef.current = null;
+        setRemotes(0);
+        if (!stop) {
+          retry = setTimeout(connect, delay);
+          delay = Math.min(delay * 2, 10000);
+        }
+      };
+    };
+    connect();
+    return () => {
+      stop = true;
+      clearTimeout(retry);
+      try {
+        ws && ws.close();
+      } catch (e) {}
+    };
+  }, []);
+  // publish state: on every render (cheap, deduplicated) + once a second for the ETA
+  const lastSentRef = useRef('');
+  const publishState = () => {
+    const ws = hostWsRef.current;
+    if (!ws || ws.readyState !== 1) return;
+    const st = JSON.stringify(remoteState());
+    if (st === lastSentRef.current) return;
+    lastSentRef.current = st;
+    try {
+      ws.send(JSON.stringify({
+        type: 'state',
+        state: JSON.parse(st)
+      }));
+    } catch (e) {}
+  };
+  useEffect(() => {
+    publishState();
+  });
+  useEffect(() => {
+    const id = setInterval(publishState, 1000);
+    return () => clearInterval(id);
+  }, []);
+  const loadRemoteInfo = async () => {
+    try {
+      const r = await fetch('/api/remote/info');
+      if (r.ok) setRemoteInfo(await r.json());
+    } catch (e) {}
+  };
+  const resetRemoteKey = async () => {
+    try {
+      await fetch('/api/remote/reset', {
+        method: 'POST'
+      });
+    } catch (e) {}
+    loadRemoteInfo();
+  };
+  useEffect(() => {
+    if (remoteOpen) loadRemoteInfo();
+  }, [remoteOpen]);
+
   // live mode: lock page scroll behind the overlay
   useEffect(() => {
     document.body.style.overflow = liveMode ? 'hidden' : '';
@@ -4389,6 +4738,7 @@ function App() {
     beats: analysis.beats,
     downbeats: analysis.downbeats,
     snap: snap,
+    phraseBars: phraseBars,
     player: player,
     playingSeg: playingSeg,
     duration: duration,
@@ -5376,9 +5726,67 @@ function App() {
       className: cueMode === m ? 'on' : '',
       onClick: () => setCueMode(m)
     }, t['cue_' + m]))), /*#__PURE__*/React.createElement("button", {
+      className: 'ghost remote-btn' + (remoteOpen ? ' on' : ''),
+      onClick: () => setRemoteOpen(o => !o),
+      title: t.remote_tip
+    }, "\uD83D\uDCF1 ", t.remote_btn, remotes > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "remote-count"
+    }, remotes)), /*#__PURE__*/React.createElement("button", {
       className: "ghost",
       onClick: () => setLiveMode(false)
-    }, "\u2715 ", t.live_exit, " ", /*#__PURE__*/React.createElement("kbd", null, "Esc")))), liveTracksOpen && /*#__PURE__*/React.createElement("div", {
+    }, "\u2715 ", t.live_exit, " ", /*#__PURE__*/React.createElement("kbd", null, "Esc")))), remoteOpen && /*#__PURE__*/React.createElement("div", {
+      className: "remote-panel"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "remote-qr"
+    }, remoteUrl ? /*#__PURE__*/React.createElement("img", {
+      alt: "QR",
+      src: `/api/remote/qr.svg?url=${encodeURIComponent(remoteUrl)}`
+    }) : /*#__PURE__*/React.createElement("div", {
+      className: "hint",
+      style: {
+        color: '#555',
+        textAlign: 'center'
+      }
+    }, remoteInfo ? t.remote_need_ip : '…')), /*#__PURE__*/React.createElement("div", {
+      className: "remote-text"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "live-label"
+    }, t.remote_title), /*#__PURE__*/React.createElement("ol", null, /*#__PURE__*/React.createElement("li", null, t.remote_step1), /*#__PURE__*/React.createElement("li", null, t.remote_step2), /*#__PURE__*/React.createElement("li", null, t.remote_step3)), remoteInfo && !(remoteInfo.urls && remoteInfo.urls.length) && /*#__PURE__*/React.createElement("div", {
+      className: "remote-ip"
+    }, /*#__PURE__*/React.createElement("label", null, t.remote_ip_label, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      inputMode: "decimal",
+      placeholder: "192.168.1.20",
+      value: remoteIp,
+      onChange: e => setRemoteIp(e.target.value)
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "hint"
+    }, remoteInfo.docker_hint ? t.remote_docker : t.remote_no_lan, " ", t.remote_ip_how)), remoteUrl && /*#__PURE__*/React.createElement("div", {
+      className: "remote-url"
+    }, /*#__PURE__*/React.createElement("code", null, remoteUrl.split('#')[0])), /*#__PURE__*/React.createElement("div", {
+      className: "remote-status"
+    }, remotes > 0 ? /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: 'var(--accent2)'
+      }
+    }, "\u25CF ", t.remote_connected.replace('{n}', remotes)) : /*#__PURE__*/React.createElement("span", null, "\u25CB ", t.remote_waiting)), /*#__PURE__*/React.createElement("div", {
+      className: "row",
+      style: {
+        marginTop: 10
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      onClick: resetRemoteKey,
+      title: t.remote_reset_tip
+    }, "\u21BB ", t.remote_reset), /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      onClick: () => setRemoteOpen(false)
+    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+      className: "hint",
+      style: {
+        marginTop: 8
+      }
+    }, t.remote_note))), liveTracksOpen && /*#__PURE__*/React.createElement("div", {
       className: "live-tracks"
     }, /*#__PURE__*/React.createElement("div", {
       className: "live-tracks-head"

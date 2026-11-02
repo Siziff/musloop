@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.siziff.musloop",
+  "appName": "musloop",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

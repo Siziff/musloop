@@ -25,7 +25,7 @@ echo "[2/2] Installing dependencies ..."
 # dev only: rebuild frontend/app.js after editing index.html (optional)
 [ "${MUSLOOP_DEV:-0}" = "1" ] && ./.venv/bin/python -m pip install --quiet -r requirements-dev.txt
 
-./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg; print('OK: core dependencies ready, librosa', librosa.__version__)"
+./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready, librosa', librosa.__version__)"
 
 echo
 echo "Done! Start the app:   ./run.sh"

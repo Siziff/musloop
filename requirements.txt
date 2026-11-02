@@ -9,3 +9,5 @@ numpy
 yt-dlp
 imageio-ffmpeg
 mutagen
+websockets
+segno
