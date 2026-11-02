@@ -5016,22 +5016,83 @@ function App() {
       marginLeft: 12
     },
     "data-tip": t.speed_tip
-  }, t.speed), /*#__PURE__*/React.createElement("input", {
-    type: "range",
-    min: "0.5",
-    max: "1.5",
-    step: "0.05",
-    value: rate,
-    style: {
-      width: 110,
-      accentColor: 'var(--accent)'
-    },
-    onChange: e => {
-      const v = +e.target.value;
+  }, t.speed), (() => {
+    // marks under the slider: the original tempo and a round tempo
+    // about a quarter below / above it (120 bpm -> 90 · 120 · 150).
+    // Click a mark to jump to it; dragging snaps to the marks.
+    const tempo = analysis && analysis.tempo > 0 ? analysis.tempo : 0;
+    const marks = [];
+    if (tempo) {
+      const T = Math.round(tempo);
+      const add = (bpm, r) => {
+        if (r >= 0.5 && r <= 1.5 && !marks.some(m => m.bpm === bpm)) marks.push({
+          bpm,
+          rate: r
+        });
+      };
+      const lo = Math.round(T * 0.75 / 10) * 10,
+        hi = Math.round(T * 1.25 / 10) * 10;
+      if (lo < T) add(lo, lo / tempo);
+      add(T, 1);
+      if (hi > T) add(hi, hi / tempo);
+    }
+    const apply = v => {
       setRateState(v);
       player.setRate(v);
-    }
-  }), /*#__PURE__*/React.createElement("span", {
+    };
+    const W = 110,
+      THUMB = 16; // tick under the thumb's centre
+    const xOf = r => THUMB / 2 + (r - 0.5) * (W - THUMB);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "speed-slider",
+      style: {
+        position: 'relative',
+        width: W,
+        paddingBottom: marks.length ? 13 : 0
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "range",
+      min: "0.5",
+      max: "1.5",
+      step: "0.01",
+      value: rate,
+      style: {
+        width: W,
+        accentColor: 'var(--accent)',
+        display: 'block',
+        margin: 0
+      },
+      onChange: e => {
+        let v = +e.target.value;
+        const m = marks.find(m => Math.abs(m.rate - v) < 0.015);
+        apply(m ? m.rate : v);
+      }
+    }), marks.map(m => {
+      const on = Math.abs(rate - m.rate) < 0.001;
+      return /*#__PURE__*/React.createElement("span", {
+        key: m.bpm,
+        className: "speed-mark",
+        title: `${m.bpm} bpm · x${m.rate.toFixed(2)}`,
+        onClick: () => apply(m.rate),
+        style: {
+          position: 'absolute',
+          left: xOf(m.rate),
+          bottom: 0,
+          transform: 'translateX(-50%)',
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: 9.5,
+          lineHeight: '11px',
+          cursor: 'pointer',
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+          color: on ? 'var(--accent)' : 'var(--muted)',
+          fontWeight: m.rate === 1 ? 700 : 400,
+          borderTop: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+          paddingTop: 1
+        }
+      }, m.bpm);
+    }));
+  })(), /*#__PURE__*/React.createElement("span", {
     className: "time",
     style: {
       fontFamily: '"JetBrains Mono", monospace',
