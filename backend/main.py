@@ -305,15 +305,17 @@ def get_markup(track_id: str):
     # markups saved before the beat-grid fix: neural beat lists with extra /
     # missing beats gave bars of 1..9 beats. Repair the grid once (parts and
     # scenes are kept), save it back.
-    if isinstance(markup, dict) and markup.get("beats") and not markup.get("grid_v"):
+    # v3: also holes where the beat tracker lost the beat (SongFormer runs)
+    if isinstance(markup, dict) and markup.get("beats") and (markup.get("grid_v") or 0) < 3:
         try:
             fixed = repair_grid(markup.get("beats"), markup.get("downbeats"),
-                                markup.get("beats_per_bar") if (markup.get("meter") or {}).get("source") == "manual" else None)
+                                markup.get("beats_per_bar") if (markup.get("meter") or {}).get("source") == "manual" else None,
+                                markup.get("duration"))
         except Exception as e:  # noqa: BLE001 - never block opening a track
             log.warning("markup %s: grid repair failed: %s", track_id, e)
             fixed = None
         markup = dict(markup)
-        markup["grid_v"] = 2
+        markup["grid_v"] = 3
         if fixed:
             log.info("markup %s: repaired beat grid (%d -> %d beats, %d bars, %d/bar)", track_id,
                      len(markup.get("beats") or []), len(fixed["beats"]), len(fixed["downbeats"]), fixed["beats_per_bar"])
