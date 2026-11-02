@@ -1,0 +1,73 @@
+name: Bug report
+description: Something doesn't work or works wrong (playback, loops, export, setup, UI)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For a **security problem**, don't open an issue: see [SECURITY.md](https://github.com/Siziff/musloop/blob/main/SECURITY.md).
+        Bars, sections or meter detected wrong on a track? Use **Track analysis problem** instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Opened a track, Live mode, cued part B1 "at phrase"
+        2. Expected the switch on the next phrase
+        3. It switched right away and the audio clicked
+    validations:
+      required: true
+  - type: dropdown
+    id: run
+    attributes:
+      label: How do you run musloop
+      options:
+        - run.sh / run.bat (native)
+        - Docker, light image
+        - Docker, AI image (CPU)
+        - Docker, AI image (CUDA)
+        - Other (describe below)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Commit (`git rev-parse --short HEAD`) or Docker image tag."
+      placeholder: "28fa418 / musloop:ai built on 2026-11-02"
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11 / macOS 15 (Apple Silicon) / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Audio bugs often depend on the browser.
+      placeholder: "Chrome 141 / Safari 26 / Firefox 144"
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Analysis engine
+      options:
+        - Fast (built-in)
+        - SongFormer
+        - All-In-One
+        - Not related to analysis
+  - type: textarea
+    id: logs
+    attributes:
+      label: Errors and logs
+      description: The terminal output of musloop, or `docker compose logs`, and errors from the browser console (F12 → Console).
+      render: text
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Screenshots, the track's markup file (Files → ⤓ Markup), settings you changed.

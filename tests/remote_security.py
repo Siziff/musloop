@@ -91,6 +91,51 @@ async def main():
                 check(False, "phone should be disconnected after reset")
             except websockets.ConnectionClosed as e:
                 check(e.rcvd and e.rcvd.code == 4401, f"key reset disconnects phones (code {e.rcvd and e.rcvd.code})")
+    # --- browser attacks from this computer (a website open in the user's browser)
+    def lhttp(path, method="GET", headers=None, data=None):
+        h = dict(headers or {})
+        if data is not None: h["Content-Type"] = "application/json"; data = json.dumps(data).encode()
+        try:
+            with urllib.request.urlopen(urllib.request.Request(LOC + path, data=data, method=method, headers=h), timeout=20) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+    # DNS rebinding: foreign host name pointed at 127.0.0.1
+    for path in ("/", "/api/tracks", "/api/folders", "/api/remote/info"):
+        st = lhttp(path, headers={"Host": f"evil.example:{PORT}"})
+        check(st == 403, f"rebinding: Host evil.example -> GET {path} -> {st}")
+    for h in (f"localhost:{PORT}", f"127.0.0.1:{PORT}", f"{LAN}:{PORT}", f"[::1]:{PORT}"):
+        st = lhttp("/api/tracks", headers={"Host": h})
+        check(st == 200, f"own host name {h} -> {st}")
+    # cross-site requests from another site's page
+    st = lhttp("/api/folders", "POST", headers={"Origin": "http://evil.example"}, data={"path": "/"})
+    check(st == 403, f"cross-site: POST /api/folders from evil.example -> {st}")
+    st = lhttp("/api/remote/reset", "POST", headers={"Origin": "http://evil.example"}, data={})
+    check(st == 403, f"cross-site: POST /api/remote/reset -> {st}")
+    st = lhttp("/api/tracks", headers={"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "no-cors"})
+    check(st == 403, f"cross-site: GET /api/tracks via <img>/<script> -> {st}")
+    st = lhttp("/api/tracks", headers={"Origin": "null"})
+    check(st == 403, f"sandboxed / file page (Origin null) -> {st}")
+    st = lhttp("/", headers={"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate"})
+    check(st == 200, f"opening musloop from a link elsewhere still works -> {st}")
+    # own page: same-origin requests keep working
+    st = lhttp("/api/remote/reset", "POST", headers={"Origin": f"http://localhost:{PORT}", "Host": f"localhost:{PORT}"}, data={})
+    check(st == 200, f"own page: POST with Origin localhost -> {st}")
+    st = lhttp("/api/tracks", headers={"Sec-Fetch-Site": "same-origin", "Origin": f"http://127.0.0.1:{PORT}"})
+    check(st == 200, f"own page: GET same-origin -> {st}")
+    # cross-site WebSockets
+    try:
+        async with websockets.connect(f"ws://127.0.0.1:{PORT}/ws/host", origin="http://evil.example") as w:
+            await asyncio.wait_for(w.recv(), 5); check(False, "foreign site must not open /ws/host")
+    except Exception as e:
+        check(True, f"cross-site: /ws/host refused ({type(e).__name__})")
+    async with websockets.connect(f"ws://127.0.0.1:{PORT}/ws/remote", origin="http://evil.example") as w:
+        await w.send(json.dumps({"type": "hello"}))
+        m = json.loads(await asyncio.wait_for(w.recv(), 5))
+        check(m.get("error") == "bad_key", f"cross-site: /ws/remote without key -> {m.get('type')} {m.get('error')}")
+    async with websockets.connect(f"ws://127.0.0.1:{PORT}/ws/host", origin=f"http://127.0.0.1:{PORT}") as w:
+        m = json.loads(await asyncio.wait_for(w.recv(), 5))
+        check(m.get("type") == "presence", f"own page: /ws/host works -> {m.get('type')}")
     # host offline -> phone gets host_offline
     key2 = json.loads(http(LOC, "/api/remote/info")[1])["key"]
     check(key2 != key, "key rotated")

@@ -332,6 +332,9 @@ on the phone, open it and allow installing apps from your browser when Android a
 - Native setup: the remote uses the app's port (8801); allow it in the firewall if needed. To use the
   *full* app from another computer at home, set `MUSLOOP_TRUST_NETWORK=192.168.1.0/24` (your network)
   in `.env` — anyone on that network then gets full access.
+- Websites open in your browser can't use musloop: requests from other sites are refused, and
+  musloop only answers to `localhost`, IP addresses and this computer's name. If you open it under
+  another name (a reverse proxy, a `hosts` entry), add it to `MUSLOOP_ALLOWED_HOSTS=name1,name2`.
 
 ## Optional neural analysis and layers
 

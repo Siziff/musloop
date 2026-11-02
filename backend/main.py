@@ -250,6 +250,40 @@ def toggle_favorite(track_id: str, body: dict = Body(...)):
     return {"ok": True, "favorite": track["favorite"]}
 
 
+_AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".oga", ".opus", ".flac", ".m4a", ".aac", ".webm")
+
+
+def clean_track_name(name, old: str | None = None) -> str:
+    """Track name typed by the user: one line, no path separators or control
+    characters, at most 200 characters. The old file extension is kept so
+    exports keep their file names (the UI edits the name without it)."""
+    import re
+    n = re.sub(r"[\x00-\x1f\x7f/\\]+", " ", str(name or ""))
+    n = re.sub(r"\s+", " ", n).strip().strip(".")[:200].strip()
+    if not n:
+        raise HTTPException(400, "Empty name")
+    ext = os.path.splitext(old or "")[1]
+    if ext.lower() in _AUDIO_EXTS and not n.lower().endswith(ext.lower()):
+        n += ext
+    return n
+
+
+@app.post("/api/tracks/{track_id}/name")
+def rename_track(track_id: str, body: dict = Body(...)):
+    """Rename a track (library / history). Markup, scenes and projects are
+    kept: they refer to the track by id."""
+    track = TRACKS.get(track_id)
+    if not track:
+        raise HTTPException(404, "Track not found")
+    track["name"] = clean_track_name(body.get("name"), track.get("name"))
+    if "favorite" in body:
+        track["favorite"] = bool(body.get("favorite"))
+    with open(_meta_path(track_id), "w") as f:
+        json.dump(track, f)
+    log.info("track %s renamed to %r", track_id, track["name"])
+    return {"ok": True, "name": track["name"], "favorite": bool(track.get("favorite"))}
+
+
 @app.post("/api/markup/{track_id}")
 def save_markup(track_id: str, markup: dict = Body(...)):
     """Save markup (segments + downbeats/beats/tempo) next to the track."""
