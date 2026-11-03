@@ -536,7 +536,12 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     tempo = _snap_tempo(float(deep.get("bpm") or 120.0))
     # neural beats can contain spurious extra beats / holes -> uneven bars
     raw_downbeats = list(downbeats)
-    if len(beats) >= 8 and beats_too_sparse(beats, downbeats):
+    # measured on the network's own beats, before any repair: filling small
+    # holes must not hide that the beat was lost on most of the track
+    lost = len(beats) < 16 or beat_coverage(beats, duration) < 0.3
+    if lost:
+        pass
+    elif len(beats) >= 8 and beats_too_sparse(beats, downbeats):
         # only bar starts (or every other beat) marked: split them using the
         # audio's beat period, so bars get their beats back
         n0 = len(beats)
@@ -546,10 +551,11 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
     elif len(beats) >= 8 and (not grid_is_regular(downbeats, beats) or not beats_are_regular(beats)):
         beats = clean_beats(beats).tolist()
 
-    lost = len(beats) < 16 or beat_coverage(beats, duration) < 0.3
     if lost:
         # the beat tracker lost the beat on most of the track (quiet /
         # orchestral music): use the audio-based beats of the fast engine
+        log.info("deep merge: neural beats cover %.0f%% of the track, using audio beats",
+                 100 * beat_coverage(deep.get("beats") or [], duration))
         _on = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
         _t, _bf = librosa.beat.beat_track(onset_envelope=_on, sr=sr, hop_length=HOP, trim=False)
         beats = librosa.frames_to_time(_bf, sr=sr, hop_length=HOP).tolist()
@@ -693,7 +699,7 @@ def analyze_deep_merge(path: str, deep: dict, beats_per_bar: int | None = None) 
         "meter": meter,
         "beat_accents": accents,
         "downbeats_auto": downbeats_auto,
-        "grid_v": 4,
+        "grid_v": 5,
     }
 
 

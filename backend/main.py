@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .analysis import (analyze, analyze_deep_merge, loop_quality, detect_meter_for_beats, repair_grid,
-                       beats_too_sparse, audio_beat_period)
+                       beats_too_sparse, audio_beat_period, beat_coverage)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The library: one folder per track, named like the track (backend/library.py).
@@ -337,8 +337,29 @@ def get_markup(track_id: str):
     # missing beats gave bars of 1..9 beats. Repair the grid once (parts and
     # scenes are kept), save it back.
     # v3: also holes where the beat tracker lost the beat (SongFormer runs)
+    # v5: AI runs where the network lost the beat on most of the track: the
+    # bar grid is rebuilt from the audio (parts and scenes are kept)
+    if isinstance(markup, dict) and markup.get("beats") and (markup.get("grid_v") or 0) < 5 \
+            and markup.get("engine") in ("deep", "songformer"):
+        raw = track.get("deep_raw" if markup["engine"] == "deep" else "songformer_raw") or {}
+        try:
+            if raw.get("beats") is not None and markup.get("duration") and \
+                    beat_coverage(raw["beats"], float(markup["duration"])) < 0.3:
+                manual = markup.get("beats_per_bar") if (markup.get("meter") or {}).get("source") == "manual" else None
+                r = analyze_deep_merge(_wav(track), raw, manual)
+                markup = dict(markup)
+                for k in ("beats", "downbeats", "tempo", "beats_per_bar", "meter", "beat_accents", "downbeats_auto"):
+                    if k in r:
+                        markup[k] = r[k]
+                markup["grid_v"] = 5
+                track["markup"] = markup
+                _save(track)
+                log.info("markup %s: neural beats lost, bar grid rebuilt from the audio (%d beats, %d bars, %.0f BPM)",
+                         track_id, len(markup["beats"]), len(markup["downbeats"]), markup.get("tempo") or 0)
+        except Exception as e:  # noqa: BLE001 - never block opening a track
+            log.warning("markup %s: grid rebuild failed: %s", track_id, e)
     # v4: also beats marked only on bar starts / at half rate (no beat ticks)
-    if isinstance(markup, dict) and markup.get("beats") and (markup.get("grid_v") or 0) < 4:
+    if isinstance(markup, dict) and markup.get("beats") and (markup.get("grid_v") or 0) < 5:
         try:
             period = None
             if beats_too_sparse(markup.get("beats"), markup.get("downbeats")):
@@ -352,7 +373,7 @@ def get_markup(track_id: str):
             log.warning("markup %s: grid repair failed: %s", track_id, e)
             fixed = None
         markup = dict(markup)
-        markup["grid_v"] = 4
+        markup["grid_v"] = 5
         if fixed:
             log.info("markup %s: repaired beat grid (%d -> %d beats, %d bars, %d/bar)", track_id,
                      len(markup.get("beats") or []), len(fixed["beats"]), len(fixed["downbeats"]), fixed["beats_per_bar"])

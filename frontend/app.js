@@ -3031,7 +3031,7 @@ function App() {
           downbeats_auto: analysis.downbeats_auto,
           n_suggested: analysis.n_suggested,
           n_max: analysis.n_max,
-          grid_v: analysis.grid_v || 4,
+          grid_v: analysis.grid_v || 5,
           engine: analysis.engine,
           segments,
           scenes
