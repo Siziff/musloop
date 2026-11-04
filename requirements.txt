@@ -6,7 +6,10 @@ python-multipart
 scikit-learn
 scipy
 numpy
-yt-dlp
+# yt-dlp[default] brings yt-dlp-ejs (scripts that solve YouTube's JavaScript
+# challenge); deno is the JavaScript runtime that runs them (official binaries)
+yt-dlp[default]
+deno; (sys_platform == "darwin") or (sys_platform == "linux" and (platform_machine == "x86_64" or platform_machine == "aarch64")) or (sys_platform == "win32" and platform_machine == "AMD64")
 imageio-ffmpeg
 mutagen
 websockets

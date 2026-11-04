@@ -22,10 +22,12 @@ fi
 echo "[2/2] Installing dependencies ..."
 ./.venv/bin/python -m pip install --quiet --upgrade pip
 ./.venv/bin/python -m pip install --quiet -r requirements.txt
+# YouTube breaks old yt-dlp versions: always take the newest
+./.venv/bin/python -m pip install --quiet --upgrade "yt-dlp[default]"
 # dev only: rebuild frontend/app.js after editing index.html (optional)
 [ "${MUSLOOP_DEV:-0}" = "1" ] && ./.venv/bin/python -m pip install --quiet -r requirements-dev.txt
 
-./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready, librosa', librosa.__version__)"
+./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, yt_dlp_ejs, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready, librosa', librosa.__version__)"
 
 echo
 echo "Done! Start the app:   ./run.sh"

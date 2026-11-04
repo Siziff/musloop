@@ -14,10 +14,11 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 rem packages added in later versions (phone remote): install them after a git pull
-".venv\Scripts\python.exe" -c "import websockets, segno" >nul 2>nul
+".venv\Scripts\python.exe" -c "import websockets, segno, yt_dlp_ejs" >nul 2>nul
 if errorlevel 1 (
   echo Installing new dependencies ^(requirements.txt^) ...
   ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt
+  ".venv\Scripts\python.exe" -m pip install --quiet --upgrade "yt-dlp[default]"
 )
 
 rem Load local settings from .env if present (KEY=VALUE lines)

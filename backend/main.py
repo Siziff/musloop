@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import os
 import shutil
 import subprocess
@@ -1204,6 +1205,21 @@ def _find_ytdlp() -> list[str] | None:
     return None
 
 
+def _js_runtime_args() -> list[str]:
+    """YouTube makes downloaders solve a JavaScript challenge. yt-dlp needs a
+    JS runtime for it: the deno binary installed with musloop (requirements),
+    passed by path so it works even when the venv is not on PATH (run.bat,
+    Docker, IDE)."""
+    try:
+        import deno  # pip package with the official Deno binary
+        path = deno.find_deno_bin()
+        if path and os.path.exists(path):
+            return ["--js-runtimes", f"deno:{path}"]
+    except Exception:  # noqa: BLE001 - not installed: yt-dlp looks in PATH itself
+        pass
+    return []
+
+
 @app.post("/api/import_url")
 def import_url(body: dict = Body(...)):
     """Import a track from a URL (YouTube and anything yt-dlp supports).
@@ -1232,7 +1248,7 @@ def import_url(body: dict = Body(...)):
          "--newline", "--force-overwrites",
          # flaky VPN / Wi-Fi: retry instead of failing on the first dropped connection
          "--retries", "10", "--fragment-retries", "10", "--extractor-retries", "5",
-         "--socket-timeout", "30", *extra,
+         "--socket-timeout", "30", *_js_runtime_args(), *extra,
          "-o", out_tpl, "--print", "after_move:filepath",
          "--print", "title", url],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -1269,10 +1285,16 @@ def import_url(body: dict = Body(...)):
             hint = ("The connection to the site was cut off. Try again; if it keeps happening, "
                     "check your VPN / network (some networks block YouTube). A proxy can be set "
                     "with MUSLOOP_YTDLP_ARGS in .env, see README. ")
-        elif "sign in" in low or "age" in low:
-            hint = "The video requires sign-in / age confirmation. "
+        elif any(k in low for k in ("js runtime", "javascript runtime", "challenge solver", "wiki/ejs",
+                                    "page needs to be reloaded", "n challenge", "signature solving")):
+            hint = ("YouTube changed its download check and this yt-dlp can't pass it. Update it: "
+                    "run ./setup.sh (Windows: setup.bat) and restart musloop. ")
+        elif re.search(r"\bsign in\b|confirm your age|age[- ]restricted|not a bot|cookies", low):
+            hint = ("YouTube wants a signed-in browser for this video (age limit or bot check). Add to "
+                    ".env: MUSLOOP_YTDLP_ARGS=\"--cookies-from-browser chrome\" (or firefox / safari / edge, "
+                    "the browser where you're signed in to YouTube) and restart musloop. ")
         elif "yt-dlp -u" in low or "extract" in low:
-            hint = "Try updating yt-dlp: pip install -U yt-dlp. "
+            hint = "Try updating yt-dlp: run ./setup.sh (Windows: setup.bat) and restart musloop. "
         else:
             hint = ""
         log.error("import_url: FAILED\n%s", "\n".join(lines[-10:]))

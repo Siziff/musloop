@@ -445,5 +445,15 @@ plus classic MIR: Ellis 2007 (beat tracking), Foote 2000 (novelty segmentation).
 6. Import from YouTube fails (`SSL: UNEXPECTED_EOF`, `Failed to resolve`, `No route to host`) →
    the connection dropped or the network blocks YouTube. Try again; check the VPN. If YouTube only
    works through a proxy, or IPv6 is broken, pass options to yt-dlp in `.env`:
-   `MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"`. Installing [Deno](https://deno.com)
-   (`brew install deno`) helps yt-dlp with newer YouTube pages.
+   `MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"`.
+7. Import from YouTube fails with `n challenge solving failed`, `JavaScript runtime` or `The page
+   needs to be reloaded` → YouTube changed its download check. musloop installs what yt-dlp needs
+   for it (the `yt-dlp-ejs` scripts and the Deno runtime); run `./setup.sh` (Windows: `setup.bat`)
+   to update yt-dlp, then restart musloop.
+8. `Sign in to confirm you're not a bot` or an age-restricted video → yt-dlp needs the cookies of a
+   browser where you are signed in to YouTube. Add to `.env` and restart:
+   `MUSLOOP_YTDLP_ARGS="--cookies-from-browser chrome"` (or `firefox`, `safari`, `edge`, `brave`).
+   Chrome on macOS asks for Keychain access the first time; Safari needs Full Disk Access for the
+   terminal. In Docker there is no browser: export a `cookies.txt`
+   ([how](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies)), put it in the
+   data volume and use `--cookies /data/cookies.txt`.
