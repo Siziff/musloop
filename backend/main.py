@@ -750,6 +750,168 @@ def import_from_folder(body: dict = Body(...)):
     return {"track_id": meta["id"], "name": meta["name"], "existing": False}
 
 
+# ----------------------------- Samples ---------------------------------------
+# Short sounds cut from tracks (a part rendered with its layers / speed /
+# reverb), played over any track. Stored as library/.samples/<Name>.wav with
+# <Name>.json next to it ({id, name, source_track, source_name, from, to,
+# duration, rate, reverb, layers, loop, volume, hotkey, created_at}).
+SAMPLES_DIR = os.path.join(LIBRARY_DIR, ".samples")
+SAMPLE_MAX_BYTES = 60 * 1024 * 1024
+SAMPLE_KEYS = ("name", "loop", "volume", "hotkey")
+
+
+def _sample_files() -> dict[str, tuple[str, dict]]:
+    """id -> (json path, meta)."""
+    out: dict[str, tuple[str, dict]] = {}
+    if not os.path.isdir(SAMPLES_DIR):
+        return out
+    for fn in sorted(os.listdir(SAMPLES_DIR)):
+        if not fn.endswith(".json"):
+            continue
+        p = os.path.join(SAMPLES_DIR, fn)
+        try:
+            with open(p, encoding="utf-8") as f:
+                m = json.load(f)
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(m, dict) and m.get("id") and os.path.isfile(p[:-5] + ".wav"):
+            out[m["id"]] = (p, m)
+    # a WAV dropped into .samples by hand becomes a sample
+    for fn in sorted(os.listdir(SAMPLES_DIR)):
+        if fn.lower().endswith(".wav") and not os.path.exists(os.path.join(SAMPLES_DIR, fn[:-4] + ".json")):
+            m = {"id": uuid.uuid4().hex[:12], "name": fn[:-4], "loop": False, "volume": 1.0,
+                 "created_at": int(os.path.getmtime(os.path.join(SAMPLES_DIR, fn)))}
+            p = os.path.join(SAMPLES_DIR, fn[:-4] + ".json")
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(m, f, ensure_ascii=False)
+            out[m["id"]] = (p, m)
+    return out
+
+
+def _sample_public(m: dict) -> dict:
+    return {k: m.get(k) for k in ("id", "name", "source_track", "source_name", "from", "to", "duration",
+                                  "rate", "reverb", "layers", "loop", "volume", "hotkey", "created_at")}
+
+
+def _clean_sample_patch(body: dict) -> dict:
+    out = {}
+    if "name" in body:
+        out["name"] = clean_track_name(body.get("name"))
+    if "loop" in body:
+        out["loop"] = bool(body.get("loop"))
+    if "volume" in body:
+        try:
+            out["volume"] = max(0.0, min(2.0, float(body.get("volume"))))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "volume must be a number")
+    if "hotkey" in body:
+        hk = body.get("hotkey")
+        out["hotkey"] = hk if isinstance(hk, str) and len(hk) == 1 and hk.isalnum() else None
+    return out
+
+
+@app.get("/api/samples")
+def list_samples():
+    items = [_sample_public(m) for _, m in _sample_files().values()]
+    items.sort(key=lambda m: (m.get("created_at") or 0))
+    return {"samples": items}
+
+
+@app.post("/api/samples")
+async def save_sample(file: UploadFile = File(...), meta: str = Query("{}")):
+    """A rendered WAV from the browser + its description (query ?meta=json)."""
+    try:
+        info = json.loads(meta or "{}")
+        assert isinstance(info, dict)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(400, "meta must be a JSON object")
+    data = await file.read(SAMPLE_MAX_BYTES + 1)
+    if len(data) > SAMPLE_MAX_BYTES:
+        raise HTTPException(413, "Sample is too long (max ~5 minutes)")
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise HTTPException(400, "Sample must be a WAV file")
+    name = clean_track_name(info.get("name") or "Sample")
+    os.makedirs(SAMPLES_DIR, exist_ok=True)
+    with lib.LOCK:
+        base = os.path.basename(lib._free_path(SAMPLES_DIR, lib.fs_name(name)))
+        # the free-name check looked at folders; samples are file pairs
+        n, k = base, 2
+        while os.path.exists(os.path.join(SAMPLES_DIR, n + ".wav")) or os.path.exists(os.path.join(SAMPLES_DIR, n + ".json")):
+            n = f"{base} ({k})"; k += 1
+        wav = os.path.join(SAMPLES_DIR, n + ".wav")
+        with open(wav, "wb") as f:
+            f.write(data)
+    m = {"id": uuid.uuid4().hex[:12], "name": name, "created_at": int(__import__("time").time()),
+         "loop": bool(info.get("loop")), "volume": 1.0, "hotkey": None}
+    for k in ("source_track", "source_name"):
+        if isinstance(info.get(k), str):
+            m[k] = info[k][:200]
+    for k in ("from", "to", "duration", "rate", "reverb"):
+        try:
+            if info.get(k) is not None:
+                m[k] = round(float(info[k]), 3)
+        except (TypeError, ValueError):
+            pass
+    if isinstance(info.get("layers"), dict):
+        m["layers"] = {k: v for k, v in info["layers"].items() if k in ("drums", "bass", "other", "vocals")}
+    m.update(_clean_sample_patch({k: info[k] for k in ("hotkey",) if k in info}))
+    with open(wav[:-4] + ".json", "w", encoding="utf-8") as f:
+        json.dump(m, f, ensure_ascii=False)
+    log.info("sample saved: '%s' (%.1f s, %.1f MB)", n, m.get("duration") or 0, len(data) / 1e6)
+    return _sample_public(m)
+
+
+@app.get("/api/samples/{sid}/audio")
+def sample_audio(sid: str):
+    hit = _sample_files().get(sid)
+    if not hit:
+        raise HTTPException(404, "Sample not found")
+    return FileResponse(hit[0][:-5] + ".wav", media_type="audio/wav")
+
+
+@app.post("/api/samples/{sid}")
+def update_sample(sid: str, body: dict = Body(...)):
+    """Rename / loop / volume / hotkey. Renaming renames the files too."""
+    hit = _sample_files().get(sid)
+    if not hit:
+        raise HTTPException(404, "Sample not found")
+    p, m = hit
+    m.update(_clean_sample_patch(body))
+    if "name" in body:
+        with lib.LOCK:
+            base = lib.fs_name(m["name"])
+            old = p[:-5]
+            n, k = base, 2
+            while os.path.normcase(os.path.join(SAMPLES_DIR, n)) != os.path.normcase(old) and (
+                    os.path.exists(os.path.join(SAMPLES_DIR, n + ".wav")) or os.path.exists(os.path.join(SAMPLES_DIR, n + ".json"))):
+                n = f"{base} ({k})"; k += 1
+            new = os.path.join(SAMPLES_DIR, n)
+            if new != old:
+                try:
+                    os.rename(old + ".wav", new + ".wav")
+                    os.remove(p)
+                    p = new + ".json"
+                except OSError as e:
+                    log.warning("sample rename: %s", e)
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(m, f, ensure_ascii=False)
+    return _sample_public(m)
+
+
+@app.delete("/api/samples/{sid}")
+def delete_sample(sid: str):
+    hit = _sample_files().get(sid)
+    if not hit:
+        raise HTTPException(404, "Sample not found")
+    p = hit[0]
+    for f in (p, p[:-5] + ".wav"):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+    return {"ok": True}
+
+
 # ----------------------------- Projects (set lists) -------------------------
 # A project groups tracks (and their scenes) for one session / level:
 #   {"id", "name", "created_at", "updated_at",

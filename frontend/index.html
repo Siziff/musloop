@@ -225,6 +225,23 @@
   .chain-step .x:hover { color: var(--danger); }
   .chain-arrow { color: var(--muted); font-size: 12px; }
   .live-chain { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
+  .sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 10px; }
+  .sample-pad { position: relative; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px;
+    min-height: 62px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel2); cursor: pointer; }
+  .sample-pad:hover { border-color: var(--accent); }
+  .sample-pad.on { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
+  .sample-pad .nm { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 40px; }
+  .sample-pad .sub { color: var(--muted); font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sample-pad .tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; opacity: 0; }
+  .sample-pad:hover .tools { opacity: 1; }
+  .sample-pad .tools span { cursor: pointer; padding: 0 3px; color: var(--muted); font-size: 12px; }
+  .sample-pad .tools span:hover { color: var(--accent); }
+  .sample-pad kbd { position: absolute; bottom: 6px; right: 8px; }
+  .sample-pad .opts { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
+  .sample-pad .opts .lp { cursor: pointer; }
+  .sample-pad .opts .lp.on { color: var(--accent2); }
+  .live-samples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .live-samples .live-pad { min-height: 46px; }
   .seg-chip .dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
   [data-theme="tavern"] .seg-chip .dot { transform: rotate(45deg); border-radius: 1px; }
   .seg-chip input {
@@ -851,6 +868,26 @@ const STR = {
     chip_select_tip: 'Выбрать часть (Play зациклит её)',
     chip_cue_tip: 'Поставить переход в эту часть в очередь · клик по играющей части — отменить переход',
     queued_badge: 'в очереди',
+    samples_title: 'Сэмплы',
+    samples_tip: 'Короткие звуки из треков, звучат поверх любого трека. Клик — играть, ещё клик — стоп',
+    samples_empty: 'Пока нет сэмплов. Выберите часть и нажмите «💾 В сэмплы» — звук сохранится как слышен сейчас (слои, скорость, реверб).',
+    sample_save: '💾 В сэмплы',
+    sample_save_tip: 'Сохранить часть как сэмпл — так, как она звучит сейчас: выбранные слои, скорость, реверб',
+    sample_name: 'Название сэмпла',
+    sample_saving: 'Сохраняю сэмпл…',
+    sample_saved: 'Сэмпл сохранён:',
+    sample_loop: '⟳ по кругу',
+    sample_once: '▸ один раз',
+    sample_loop_tip: 'Играть один раз или по кругу (до повторного нажатия)',
+    sample_on_beat: 'На долю',
+    sample_on_beat_tip: 'Начинать на ближайшей доле играющего трека',
+    sample_vol: 'Громкость сэмплов',
+    sample_del_tip: 'Удалить сэмпл',
+    sample_rename_tip: 'Переименовать',
+    sample_key_tip: 'Клавиша (буква или цифра) — запуск с клавиатуры, Alt+клавиша',
+    sample_stop_all: '■ Стоп все',
+    sample_from: 'из',
+    sample_del_confirm: 'Удалить сэмпл «{name}»?',
     chain_title: 'Цепочка',
     chain_tip: 'Несколько частей подряд по кругу: каждая играет один раз, потом следующая, после последней — снова первая',
     chain_build: '＋ Собрать цепочку',
@@ -954,7 +991,7 @@ const STR = {
     scenes_this_track: 'Этот трек',
     scenes_other_track: 'Трек:',
     scene_remote_tip: 'Сцена другого трека: клик загрузит трек и запустит сцену',
-    live_keys: 'Пробел — играть/стоп · → / Enter — дальше · 1–9, 0 — переход в часть 1–10 · Shift+1–9 — сцены · Backspace — отменить переход · F — затухание · [ / ] — соседний трек · T — список треков · L / Esc — выйти из Live',
+    live_keys: 'Пробел — играть/стоп · → / Enter — дальше · 1–9, 0 — переход в часть 1–10 · Shift+1–9 — сцены · Backspace — отменить переход · F — затухание · [ / ] — соседний трек · T — список треков · Alt+клавиша — сэмпл · L / Esc — выйти из Live',
     part_hotkey_tip: 'Клавиша части: нажми во время игры — переход в неё; ещё раз — отмена',
     // --- projects ---
     project_title: 'Проект',
@@ -1132,6 +1169,26 @@ const STR = {
     chip_select_tip: 'Select this part (Play will loop it)',
     chip_cue_tip: 'Queue a transition into this part · click the playing part to cancel',
     queued_badge: 'queued',
+    samples_title: 'Samples',
+    samples_tip: 'Short sounds from tracks, played over any track. Click to play, click again to stop',
+    samples_empty: 'No samples yet. Pick a part and press “💾 To samples” — it is saved the way it sounds now (layers, speed, reverb).',
+    sample_save: '💾 To samples',
+    sample_save_tip: 'Save the part as a sample, the way it sounds now: chosen layers, speed, reverb',
+    sample_name: 'Sample name',
+    sample_saving: 'Saving the sample…',
+    sample_saved: 'Sample saved:',
+    sample_loop: '⟳ loop',
+    sample_once: '▸ once',
+    sample_loop_tip: 'Play once, or loop until pressed again',
+    sample_on_beat: 'On the beat',
+    sample_on_beat_tip: 'Start on the next beat of the playing track',
+    sample_vol: 'Samples volume',
+    sample_del_tip: 'Delete the sample',
+    sample_rename_tip: 'Rename',
+    sample_key_tip: 'Key (letter or digit) to fire it from the keyboard with Alt',
+    sample_stop_all: '■ Stop all',
+    sample_from: 'from',
+    sample_del_confirm: 'Delete the sample “{name}”?',
     chain_title: 'Chain',
     chain_tip: 'Several parts in a row, round and round: each plays once, then the next, after the last one the first again',
     chain_build: '＋ Build a chain',
@@ -1235,7 +1292,7 @@ const STR = {
     scenes_this_track: 'This track',
     scenes_other_track: 'Track:',
     scene_remote_tip: 'Scene of another track: click loads the track and starts the scene',
-    live_keys: 'Space — play/stop · → / Enter — next · 1–9, 0 — cue part 1–10 · Shift+1–9 — scenes · Backspace — cancel transition · F — fade out · [ / ] — prev/next track · T — track list · L / Esc — leave Live',
+    live_keys: 'Space — play/stop · → / Enter — next · 1–9, 0 — cue part 1–10 · Shift+1–9 — scenes · Backspace — cancel transition · F — fade out · [ / ] — prev/next track · T — track list · Alt+key — sample · L / Esc — leave Live',
     part_hotkey_tip: 'Part hotkey: press while playing to cue this part; press again to cancel',
     // --- projects ---
     project_title: 'Project',
@@ -1414,6 +1471,26 @@ const STR = {
     chip_select_tip: '选择此段（播放将循环它）',
     chip_cue_tip: '将切换到此段加入队列 · 点击正在播放的段可取消切换',
     queued_badge: '已排队',
+    samples_title: '采样',
+    samples_tip: '从音轨中截取的短音，可叠加在任何音轨上播放。点击播放，再次点击停止',
+    samples_empty: '还没有采样。选择一个段落并点击“💾 存为采样”——按当前听到的效果保存（分轨、速度、混响）。',
+    sample_save: '💾 存为采样',
+    sample_save_tip: '按当前效果把段落保存为采样：所选分轨、速度、混响',
+    sample_name: '采样名称',
+    sample_saving: '正在保存采样…',
+    sample_saved: '采样已保存：',
+    sample_loop: '⟳ 循环',
+    sample_once: '▸ 一次',
+    sample_loop_tip: '播放一次，或循环直到再次点击',
+    sample_on_beat: '对齐节拍',
+    sample_on_beat_tip: '在正在播放音轨的下一拍开始',
+    sample_vol: '采样音量',
+    sample_del_tip: '删除采样',
+    sample_rename_tip: '重命名',
+    sample_key_tip: '按键（字母或数字），用 Alt+按键触发',
+    sample_stop_all: '■ 全部停止',
+    sample_from: '来自',
+    sample_del_confirm: '删除采样“{name}”？',
     chain_title: '串联',
     chain_tip: '多个段落依次循环：每段播放一次，然后下一段，最后一段之后回到第一段',
     chain_build: '＋ 组建串联',
@@ -1517,7 +1594,7 @@ const STR = {
     scenes_this_track: '当前曲目',
     scenes_other_track: '曲目：',
     scene_remote_tip: '其他曲目的场景：点击将加载该曲目并启动场景',
-    live_keys: '空格 — 播放/停止 · → / Enter — 下一个 · 1–9、0 — 切到第 1–10 段 · Shift+1–9 — 场景 · Backspace — 取消切换 · F — 淡出 · [ / ] — 上/下一首 · T — 音轨列表 · L / Esc — 退出现场模式',
+    live_keys: '空格 — 播放/停止 · → / Enter — 下一个 · 1–9、0 — 切到第 1–10 段 · Shift+1–9 — 场景 · Backspace — 取消切换 · F — 淡出 · [ / ] — 上/下一首 · T — 音轨列表 · Alt+按键 — 采样 · L / Esc — 退出现场模式',
     part_hotkey_tip: '段快捷键：播放时按下排队切换到此段；再按一次取消',
     // --- projects ---
     project_title: '项目',
@@ -2406,6 +2483,145 @@ class LoopPlayer {
   }
 }
 
+// ============================== Samples ======================================
+// Render track[from, to) the way it sounds now (layers, speed, reverb) into a
+// stereo WAV. Offline, faster than real time; the live player isn't touched.
+async function renderSample(player, from, to) {
+  const rate = player.rate || 1;
+  const src0 = player.stems ? Object.values(player.stems).find(Boolean) : player.buffer;
+  const sr = src0.sampleRate;
+  const dur = (to - from) / rate;
+  const reverb = player.reverb || 0;
+  const tail = reverb > 0 ? 2.5 : 0;            // let the reverb ring out
+  const len = Math.ceil((dur + tail) * sr);
+  const ctx = new OfflineAudioContext(2, len, sr);
+  const out = ctx.createGain();
+  out.connect(ctx.destination);
+  const fade = Math.min(0.006, dur / 4);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0, 0);
+  env.gain.linearRampToValueAtTime(1, fade);
+  env.gain.setValueAtTime(1, Math.max(fade, dur - fade));
+  env.gain.linearRampToValueAtTime(0, dur);
+  env.connect(out);
+  const start = (buf, dest) => {
+    const s = ctx.createBufferSource();
+    s.buffer = buf; s.playbackRate.value = rate;
+    s.connect(dest); s.start(0, from, to - from);
+  };
+  if (player.stems) {
+    for (const name of ['drums', 'bass', 'other', 'vocals']) {
+      const buf = player.stems[name];
+      const st = (player.layers || {})[name] || { on: true, vol: 1 };
+      if (!buf || !st.on || st.vol <= 0) continue;
+      const g = ctx.createGain(); g.gain.value = st.vol; g.connect(env);
+      start(buf, g);
+    }
+  } else {
+    start(player.buffer, env);
+  }
+  if (reverb > 0) {
+    const conv = ctx.createConvolver();
+    const ir = ctx.createBuffer(2, Math.floor(sr * 2.8), sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2.2);
+    }
+    conv.buffer = ir;
+    const wet = ctx.createGain(); wet.gain.value = reverb;
+    env.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
+  }
+  const rendered = await ctx.startRendering();
+  // trim the reverb tail where it has died away (< -60 dB)
+  let end = rendered.length;
+  if (tail) {
+    const L = rendered.getChannelData(0), R = rendered.getChannelData(1);
+    const minEnd = Math.ceil(dur * sr);
+    while (end > minEnd && Math.abs(L[end - 1]) < 0.001 && Math.abs(R[end - 1]) < 0.001) end--;
+  }
+  return { wav: encodeWav(rendered, end), duration: end / sr };
+}
+
+function encodeWav(buf, frames) {
+  const n = frames || buf.length, ch = buf.numberOfChannels, sr = buf.sampleRate;
+  const ab = new ArrayBuffer(44 + n * ch * 2);
+  const v = new DataView(ab);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true);
+  v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const chans = Array.from({ length: ch }, (_, c) => buf.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < n; i++) {
+    for (let c = 0; c < ch; c++) {
+      const x = Math.max(-1, Math.min(1, chans[c][i]));
+      v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true); o += 2;
+    }
+  }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+// Samples play on the track player's AudioContext, straight into the output
+// (not through the track's master), so the track's fades and volume don't
+// touch them. One voice per sample: pressing it again stops it.
+class SamplePlayer {
+  constructor(player) { this.player = player; this.buffers = {}; this.voices = {}; this.volume = 1; this.onState = () => {}; }
+  async load(sm) {
+    if (this.buffers[sm.id]) return this.buffers[sm.id];
+    this.player._ensureCtx();
+    const ab = await (await fetch(`/api/samples/${sm.id}/audio`)).arrayBuffer();
+    this.buffers[sm.id] = await this.player.decode(ab);
+    return this.buffers[sm.id];
+  }
+  playing(id) { return !!this.voices[id]; }
+  async trigger(sm, opts = {}) {
+    if (this.voices[sm.id]) { this.stop(sm.id); return; }
+    const buf = await this.load(sm);
+    const ctx = this.player.ctx;
+    // "on the beat": start on the next beat of the playing track
+    let when = ctx.currentTime + 0.02;
+    if (opts.onBeat && this.player.playing) {
+      const pos = this.player.position();
+      const beats = this.player.beats || [];
+      const nb = pos != null ? beats.find(b => b > pos + 0.03) : null;
+      if (nb != null) when = ctx.currentTime + (nb - pos) / (this.player.rate || 1);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.loop = !!sm.loop;
+    const g = ctx.createGain();
+    g.gain.value = (sm.volume != null ? sm.volume : 1) * this.volume;
+    src.connect(g); g.connect(ctx.destination);
+    src.start(when);
+    const v = { src, g };
+    this.voices[sm.id] = v;
+    src.onended = () => { if (this.voices[sm.id] === v) { delete this.voices[sm.id]; this.onState(); } };
+    this.onState();
+  }
+  stop(id, fade = 0.08) {
+    const v = this.voices[id];
+    if (!v) return;
+    delete this.voices[id];
+    const now = this.player.ctx.currentTime;
+    try {
+      v.g.gain.cancelScheduledValues(now);
+      v.g.gain.setValueAtTime(v.g.gain.value, now);
+      v.g.gain.linearRampToValueAtTime(0, now + fade);
+      v.src.stop(now + fade + 0.02);
+    } catch (e) {}
+    this.onState();
+  }
+  stopAll() { Object.keys(this.voices).forEach(id => this.stop(id)); }
+  setVolume(v) {
+    this.volume = v;
+    for (const [id, voice] of Object.entries(this.voices)) {
+      const sm = this._meta && this._meta[id];
+      voice.g.gain.value = ((sm && sm.volume != null) ? sm.volume : 1) * v;
+    }
+  }
+  forget(id) { this.stop(id); delete this.buffers[id]; }
+}
+
 // Part chain: parts played one pass each, in order, round and round.
 function ChainBar({ t, segments, parts, setParts, edit, setEdit, active, nowPos, onPlay, onStop }) {
   const col = i => {
@@ -3137,7 +3353,7 @@ function App() {
   useEffect(() => { player.transitionMode = cueMode; }, [cueMode]);
   useEffect(() => { player.phraseBars = phraseBars; }, [phraseBars]);
   useEffect(() => {
-    if (analysis) player.downbeats = analysis.downbeats || [];
+    if (analysis) { player.downbeats = analysis.downbeats || []; player.beats = analysis.beats || []; }
   }, [analysis]);
   useEffect(() => () => player.stop(false), []);
   // while a transition is pending, refresh the ETA label once a second
@@ -3216,6 +3432,62 @@ function App() {
     } catch (e) {
       setError(String(e.message || e));
       setStemsState('none');
+    } finally {
+      setLoading(null);
+    }
+  };
+  // --- Samples (short sounds over any track) --------------------------------
+  const samplerRef = useRef(null);
+  if (!samplerRef.current) samplerRef.current = new SamplePlayer(player);
+  const sampler = samplerRef.current;
+  useEffect(() => { sampler.onState = () => force(x => x + 1); }, []);
+  const [samples, setSamples] = useState([]);
+  const [sampleOnBeat, setSampleOnBeat] = useState(() => localStorage.getItem('musloop_sample_beat') === '1');
+  useEffect(() => { localStorage.setItem('musloop_sample_beat', sampleOnBeat ? '1' : '0'); }, [sampleOnBeat]);
+  const [sampleVol, setSampleVolState] = useState(() => {
+    const v = parseFloat(localStorage.getItem('musloop_sample_vol')); return isFinite(v) ? v : 1;
+  });
+  const setSampleVol = v => { setSampleVolState(v); localStorage.setItem('musloop_sample_vol', String(v)); sampler.setVolume(v); };
+  useEffect(() => { sampler.volume = sampleVol; }, []);
+  const [sampleEdit, setSampleEdit] = useState(null);   // {track_id: 'sample:<id>' | 'new', value, ...}
+  const loadSamples = useCallback(async () => {
+    try {
+      const r = await fetch('/api/samples');
+      if (r.ok) { const j = await r.json(); setSamples(j.samples); sampler._meta = Object.fromEntries(j.samples.map(x => [x.id, x])); }
+    } catch (e) {}
+  }, []);
+  useEffect(() => { loadSamples(); }, []);
+  const fireSample = sm => { sampler.trigger(sm, { onBeat: sampleOnBeat }).catch(e => setError(String(e.message || e))); };
+  const patchSample = async (sm, patch) => {
+    if (patch.loop !== undefined) sampler.stop(sm.id);   // re-trigger with the new mode
+    const r = await fetch(`/api/samples/${sm.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    if (r.ok) loadSamples();
+  };
+  const deleteSample = async sm => {
+    if (!window.confirm(t.sample_del_confirm.replace('{name}', sm.name))) return;
+    sampler.forget(sm.id);
+    await fetch(`/api/samples/${sm.id}`, { method: 'DELETE' });
+    loadSamples();
+  };
+  // "Save as sample": render part i the way it sounds now
+  const saveSample = async (i, name) => {
+    const seg = segments[i];
+    if (!seg || !player.buffer) return;
+    setLoading(t.sample_saving);
+    try {
+      player._ensureCtx();
+      const { wav, duration: d } = await renderSample(player, seg.start, seg.end);
+      const meta = { name: name || seg.label, source_track: trackId, source_name: trackName,
+                     from: seg.start, to: seg.end, duration: d, rate: player.rate || 1, reverb: player.reverb || 0,
+                     layers: player.stems ? player.layers : null, loop: seg.loop !== false };
+      const fd = new FormData(); fd.append('file', wav, 'sample.wav');
+      const r = await fetch(`/api/samples?meta=${encodeURIComponent(JSON.stringify(meta))}`, { method: 'POST', body: fd });
+      if (!r.ok) throw new Error((await r.json()).detail || t.err_upload);
+      const sm = await r.json();
+      showToast(`🎵 ${t.sample_saved} ${sm.name}`);
+      loadSamples();
+    } catch (e) {
+      setError(String(e.message || e));
     } finally {
       setLoading(null);
     }
@@ -4204,7 +4476,7 @@ function App() {
   // hotkey handlers read the latest state through a ref (the listener is bound once)
   const keyCtx = useRef({});
   keyCtx.current = { scenes, liveMode, cueMode, applyScene, segments, setLiveMode, sceneByHotkey, applyRemoteScene, trackId,
-                     liveStepTrack, setLiveTracksOpen, liveTracksOpen };
+                     liveStepTrack, setLiveTracksOpen, liveTracksOpen, samples, fireSample };
 
   useEffect(() => {
     const h = e => {
@@ -4214,6 +4486,12 @@ function App() {
         e.preventDefault(); undo(); return;
       }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const m = /^(?:Key([A-Z])|Digit([0-9]))$/.exec(e.code);
+        const ch = m ? (m[1] || m[2]).toLowerCase() : null;
+        const sm = ch && (k.samples || []).find(x => x.hotkey === ch);
+        if (sm) { e.preventDefault(); k.fireSample(sm); return; }
+      }
       if (e.code === 'Escape' && k.liveMode && k.liveTracksOpen) { e.preventDefault(); k.setLiveTracksOpen(false); return; }
       if (e.code === 'Escape' && k.liveMode) { e.preventDefault(); k.setLiveMode(false); return; }
       if (k.liveMode && (e.code === 'BracketLeft' || e.code === 'BracketRight')) {
@@ -4667,6 +4945,8 @@ function App() {
                     </div>
                   ))}
                 </div>}
+                <span className="x tip sample-save" data-tip={t.sample_save_tip}
+                  onClick={e => { e.stopPropagation(); setSampleEdit({ track_id: 'new:' + i, value: s.label, seg: i }); }}>💾</span>
                 <span className="x" title={t.split_seg_tip}
                   onClick={e => { e.stopPropagation(); splitSeg(i); }}>✂</span>
                 <span className="x" title={t.del_seg}
@@ -4675,6 +4955,12 @@ function App() {
             );
           })}
         </div>
+        {sampleEdit && sampleEdit.track_id.startsWith('new:') && <div className="dropdown" style={{ width: '100%' }}>
+          <NameForm ed={{ ...sampleEdit, fav: false }} setEd={ed => setSampleEdit(ed ? { ...sampleEdit, value: ed.value } : null)}
+            t={{ ...t, name_label: t.sample_name, name_hint: t.sample_save_tip, name_save: t.sample_save }}
+            onSave={() => { const ed = sampleEdit; setSampleEdit(null); saveSample(ed.seg, ed.value.trim()); }}
+            style={{ position: 'static', boxShadow: 'none', marginTop: 8, minWidth: 0, maxWidth: 420 }} />
+        </div>}
         <ChainBar t={t} segments={segments} parts={chainParts} setParts={setChainParts}
           edit={chainEdit} setEdit={setChainEdit} active={chainActive} nowPos={chainNow}
           onPlay={playChain} onStop={() => player.stopChain()} />
@@ -4847,6 +5133,61 @@ function App() {
               </React.Fragment>}
         </div>}
         <div className="hint">{t.keys_hint}</div>
+      </div>}
+
+      {(analysis || samples.length > 0) && <div className="panel samples-panel">
+        <div className="row between">
+          <div className="row">
+            <div className="panel-title tip" data-tip={t.samples_tip} style={{ marginBottom: 0 }}>🎵 {t.samples_title}</div>
+            {samples.length > 0 && <span className="count">({samples.length})</span>}
+          </div>
+          <div className="row">
+            <label className="chk tip" data-tip={t.sample_on_beat_tip}>
+              <input type="checkbox" checked={sampleOnBeat} onChange={e => setSampleOnBeat(e.target.checked)} />
+              {t.sample_on_beat}
+            </label>
+            <span className="badge">{t.sample_vol}</span>
+            <input type="range" min="0" max="1.5" step="0.01" value={sampleVol} style={{ width: 100, accentColor: 'var(--accent)' }}
+              onChange={e => setSampleVol(+e.target.value)} />
+            {Object.keys(sampler.voices).length > 0 &&
+              <button className="ghost" onClick={() => sampler.stopAll()}>{t.sample_stop_all}</button>}
+          </div>
+        </div>
+        {samples.length === 0 && <div className="hint" style={{ marginTop: 8 }}>{t.samples_empty}</div>}
+        {samples.length > 0 && <div className="sample-grid">
+          {samples.map(sm => {
+            const on = sampler.playing(sm.id);
+            const editing = sampleEdit && sampleEdit.track_id === 'sample:' + sm.id;
+            return (
+              <div key={sm.id} className={'sample-pad' + (on ? ' on' : '')} onClick={() => !editing && fireSample(sm)}
+                title={sm.source_name ? `${t.sample_from} ${sm.source_name}` : ''}>
+                {editing
+                  ? <input autoFocus value={sampleEdit.value} onClick={e => e.stopPropagation()}
+                      onChange={e => setSampleEdit({ ...sampleEdit, value: e.target.value })}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && sampleEdit.value.trim()) { patchSample(sm, { name: sampleEdit.value.trim() }); setSampleEdit(null); }
+                        if (e.key === 'Escape') setSampleEdit(null);
+                      }} onBlur={() => setSampleEdit(null)} />
+                  : <span className="nm">{on && <span className="eq" style={{ marginRight: 4 }}><i></i><i></i><i></i></span>}{sm.name}</span>}
+                <span className="sub">{sm.duration != null ? fmt(sm.duration) : ''}{sm.source_name ? ` · ${sm.source_name.replace(/\.[^.]+$/, '')}` : ''}</span>
+                <span className="opts">
+                  <span className={'lp' + (sm.loop ? ' on' : '')} title={t.sample_loop_tip}
+                    onClick={e => { e.stopPropagation(); patchSample(sm, { loop: !sm.loop }); }}>{sm.loop ? t.sample_loop : t.sample_once}</span>
+                </span>
+                <span className="tools">
+                  <span title={t.sample_key_tip} onClick={e => {
+                    e.stopPropagation();
+                    const k = window.prompt(t.sample_key_tip, sm.hotkey || '');
+                    if (k !== null) patchSample(sm, { hotkey: k.trim().slice(0, 1).toLowerCase() || null });
+                  }}>⌨</span>
+                  <span title={t.sample_rename_tip} onClick={e => { e.stopPropagation(); setSampleEdit({ track_id: 'sample:' + sm.id, value: sm.name }); }}>✎</span>
+                  <span title={t.sample_del_tip} onClick={e => { e.stopPropagation(); deleteSample(sm); }}>✕</span>
+                </span>
+                {sm.hotkey && <kbd>Alt+{sm.hotkey.toUpperCase()}</kbd>}
+              </div>
+            );
+          })}
+        </div>}
       </div>}
 
       {(analysis || otherSceneGroups.length > 0) && <div className="panel">
@@ -5300,6 +5641,14 @@ function App() {
                 );
               })}
             </div>
+            {samples.length > 0 && <div className="live-samples">
+              {samples.map(sm => <button key={sm.id} className={'live-pad scene' + (sampler.playing(sm.id) ? ' on' : '')}
+                style={{ '--scene-col': 'var(--accent2)' }} onClick={() => fireSample(sm)}>
+                {sm.hotkey && <kbd>Alt+{sm.hotkey.toUpperCase()}</kbd>}
+                <span className="live-pad-name">🎵 {sm.name}</span>
+                <span className="live-pad-sub">{sampler.playing(sm.id) ? t.scene_on_air : (sm.loop ? t.sample_loop : t.sample_once)}</span>
+              </button>)}
+            </div>}
             <div className="live-bar">
               {!player.playing
                 ? <button className="primary big" onClick={() => player.play()}>▶ {t.live_play}</button>

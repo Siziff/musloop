@@ -224,6 +224,23 @@
   .chain-step .x:hover { color: var(--danger); }
   .chain-arrow { color: var(--muted); font-size: 12px; }
   .live-chain { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
+  .sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 10px; }
+  .sample-pad { position: relative; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px;
+    min-height: 62px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel2); cursor: pointer; }
+  .sample-pad:hover { border-color: var(--accent); }
+  .sample-pad.on { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
+  .sample-pad .nm { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 40px; }
+  .sample-pad .sub { color: var(--muted); font-size: 11px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sample-pad .tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; opacity: 0; }
+  .sample-pad:hover .tools { opacity: 1; }
+  .sample-pad .tools span { cursor: pointer; padding: 0 3px; color: var(--muted); font-size: 12px; }
+  .sample-pad .tools span:hover { color: var(--accent); }
+  .sample-pad kbd { position: absolute; bottom: 6px; right: 8px; }
+  .sample-pad .opts { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
+  .sample-pad .opts .lp { cursor: pointer; }
+  .sample-pad .opts .lp.on { color: var(--accent2); }
+  .live-samples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .live-samples .live-pad { min-height: 46px; }
   .seg-chip .dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
   [data-theme="tavern"] .seg-chip .dot { transform: rotate(45deg); border-radius: 1px; }
   .seg-chip input {
@@ -687,6 +704,6 @@
     }
   });
 </script>
-<script defer src="app.js?v=69f3adf4e1"></script>
+<script defer src="app.js?v=d12aedd1f9"></script>
 </body>
 </html>

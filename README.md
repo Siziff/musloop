@@ -55,6 +55,15 @@ models have been downloaded. This is a personal passion project, shared freely.
   finds musloop on your Wi-Fi by itself, remembers your computers and keeps the screen on.
   See [Phone remote](#phone-remote).
 
+**Chains and samples**
+- **Part chains** — click **＋ Build a chain**, then parts in the order you want (2 → 5 → 3): each plays
+  one pass, then the next, and after the last one the first again. The chain enters with the
+  transition mode you picked; Backspace or a click on any part leaves it.
+- **Samples** — 💾 on a part saves it as a short sound, the way it sounds now (the layers you kept,
+  speed, reverb). Samples play over any track from the 🎵 panel or in Live; once or in a loop,
+  optionally starting on the next beat, with **Alt+key** hotkeys. They are WAV files in
+  `library/.samples/`.
+
 **Run a whole session from one screen**
 - **Live mode** (`L`) — a full-screen desk for the table: what's playing now, what comes next
   and in how many seconds, big pads for parts and scenes, **Next**, **Cancel** and **Fade out** (`F`).
@@ -220,6 +229,7 @@ library/
     track.json            parts, scenes, bar grid, AI results
     cache/                analysis files, re-created when missing
     stems/                layers, if you made them
+  .samples/               samples: <Name>.wav + <Name>.json
   .musloop/               projects, music folders, temporary files
 ```
 
