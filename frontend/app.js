@@ -162,6 +162,18 @@ const STR = {
     chip_select_tip: 'Выбрать часть (Play зациклит её)',
     chip_cue_tip: 'Поставить переход в эту часть в очередь · клик по играющей части — отменить переход',
     queued_badge: 'в очереди',
+    chain_title: 'Цепочка',
+    chain_tip: 'Несколько частей подряд по кругу: каждая играет один раз, потом следующая, после последней — снова первая',
+    chain_build: '＋ Собрать цепочку',
+    chain_build_hint: 'Кликайте части по порядку (одну можно несколько раз)',
+    chain_play: '▶ Играть цепочку',
+    chain_stop: '■ Выйти из цепочки',
+    chain_clear: 'Очистить',
+    chain_done: 'Готово',
+    chain_empty: 'пусто',
+    chain_on: 'цепочка',
+    chain_remove_tip: 'Убрать из цепочки',
+    chain_add_tip: 'Добавить в цепочку',
     cancel_cue: 'Отменить переход',
     cancel_cue_tip: 'Остаться в текущей части (отменить запланированный переход)',
     cue_mode: 'Когда переходить:',
@@ -431,6 +443,18 @@ const STR = {
     chip_select_tip: 'Select this part (Play will loop it)',
     chip_cue_tip: 'Queue a transition into this part · click the playing part to cancel',
     queued_badge: 'queued',
+    chain_title: 'Chain',
+    chain_tip: 'Several parts in a row, round and round: each plays once, then the next, after the last one the first again',
+    chain_build: '＋ Build a chain',
+    chain_build_hint: 'Click parts in order (the same part can be added more than once)',
+    chain_play: '▶ Play the chain',
+    chain_stop: '■ Leave the chain',
+    chain_clear: 'Clear',
+    chain_done: 'Done',
+    chain_empty: 'empty',
+    chain_on: 'chain',
+    chain_remove_tip: 'Remove from the chain',
+    chain_add_tip: 'Add to the chain',
     cancel_cue: 'Cancel transition',
     cancel_cue_tip: 'Stay in the current part (cancel the scheduled transition)',
     cue_mode: 'Move on:',
@@ -701,6 +725,18 @@ const STR = {
     chip_select_tip: '选择此段（播放将循环它）',
     chip_cue_tip: '将切换到此段加入队列 · 点击正在播放的段可取消切换',
     queued_badge: '已排队',
+    chain_title: '串联',
+    chain_tip: '多个段落依次循环：每段播放一次，然后下一段，最后一段之后回到第一段',
+    chain_build: '＋ 组建串联',
+    chain_build_hint: '按顺序点击段落（同一段可添加多次）',
+    chain_play: '▶ 播放串联',
+    chain_stop: '■ 退出串联',
+    chain_clear: '清空',
+    chain_done: '完成',
+    chain_empty: '空',
+    chain_on: '串联',
+    chain_remove_tip: '从串联中移除',
+    chain_add_tip: '添加到串联',
     cancel_cue: '取消切换',
     cancel_cue_tip: '留在当前段（取消已安排的切换）',
     cue_mode: '切换时机：',
@@ -921,6 +957,11 @@ class LoopPlayer {
     // following part). Set by cue(); consumed when the transition is planned
     this.targetIndex = null;
     this.loopEnabled = true;
+    // chain: parts played one pass each, in order, then from the start again
+    // ({parts: [segIndex...]}); chainPlanned = position in parts of the last
+    // planned chunk, -1 while waiting to enter the first part
+    this.chain = null;
+    this.chainPlanned = -1;
     // audition preview (seam / transition) — separate from the main playback
     this.previewing = false;
     this._previewT = null;
@@ -1396,7 +1437,17 @@ class LoopPlayer {
       const curSeg = this.segments[idx];
       // a non-looped part (build-up) plays once and moves on
       const noLoop = curSeg && curSeg.loop === false;
-      if (this.advanceArmed || !this.loopEnabled || noLoop) {
+      const ch = this.chain;
+      if (ch && ch.parts.some(i => i >= this.segments.length)) this.chain = null; // parts were deleted
+      if (this.chain && !this.advanceArmed && this.chainPlanned >= 0) {
+        // chain running: one pass of each part, then the next one, round and round
+        const np = (this.chainPlanned + 1) % this.chain.parts.length;
+        const want = this.chain.parts[np];
+        isRepeat = want === idx;
+        idx = want;
+        this.chainPlanned = np;
+        this.onState();
+      } else if (this.advanceArmed || !this.loopEnabled || noLoop) {
         const want = this.advanceArmed && this.targetIndex != null ? this.targetIndex : idx + 1;
         if (want >= 0 && want < this.segments.length) {
           idx = want;
@@ -1406,6 +1457,7 @@ class LoopPlayer {
           this.onState();
           return;
         }
+        if (this.chain && this.chainPlanned < 0 && want === this.chain.parts[0]) this.chainPlanned = 0;
         this.advanceArmed = false;
         this.targetIndex = null;
         this.onState();
@@ -1491,6 +1543,7 @@ class LoopPlayer {
   cue(target, urgency = 'natural') {
     if (!this.playing) return;
     if (target == null || target < 0 || target >= this.segments.length) return;
+    this.chain = null; // picking a part by hand leaves the chain
     if (urgency === 'now') {
       this._transitionAt(target, this.position(), Math.max(this.crossfade, 0.25));
       this.onState();
@@ -1509,7 +1562,9 @@ class LoopPlayer {
   // Cancel a pending (not yet planned) transition — keep looping the current part
   cancelCue() {
     if (!this.playing) return;
-    const wasArmed = this.advanceArmed;
+    const hadChain = !!this.chain;
+    this.chain = null; // Backspace: stay on the current part
+    const wasArmed = this.advanceArmed || hadChain;
     this.advanceArmed = false;
     this.targetIndex = null;
     // if the lookahead already planned the target chunk, roll back to the
@@ -1525,6 +1580,68 @@ class LoopPlayer {
       }
     }
     if (wasArmed || last) this.onState();
+  }
+  // Play parts one pass each, in this order, then from the first again.
+  // Stopped: starts playing the first part. Playing: enters the first part
+  // like a normal cue (urgency); if it is the part playing now, the chain
+  // continues from it after the current pass.
+  startChain(parts, urgency = 'natural') {
+    parts = (parts || []).filter(i => i >= 0 && i < this.segments.length);
+    if (!parts.length) return;
+    if (!this.playing) {
+      this.play(parts[0]);
+      this.chain = {
+        parts
+      };
+      this.chainPlanned = 0;
+      this.onState();
+      return;
+    }
+    if (parts[0] === this.segIndex && urgency !== 'now') {
+      // already in the first part: drop a planned repeat, continue after this pass
+      this.cancelCue();
+      this.chain = {
+        parts
+      };
+      this.chainPlanned = 0;
+      const last = this.queue[this.queue.length - 1];
+      if (last && last.isLoopRepeat && last.t0 > this.ctx.currentTime + 0.05) {
+        const pos = this.position();
+        if (pos != null) {
+          const lc = this.loopCount;
+          this._softRestartAt(pos);
+          this.loopCount = lc;
+        }
+      }
+      this.onState();
+      return;
+    }
+    this.cue(parts[0], urgency);
+    this.chain = {
+      parts
+    };
+    // 'soon' / 'now' plan the entry right away; 'natural' enters at the loop end
+    const last = this.queue[this.queue.length - 1];
+    this.chainPlanned = !this.advanceArmed && last && last.segIndex === parts[0] ? 0 : -1;
+    this.onState();
+  }
+  stopChain() {
+    if (!this.chain) return;
+    this.chain = null;
+    this.onState();
+  }
+  // position in the chain of the part playing now (or -1)
+  chainNow() {
+    if (!this.chain || !this.playing) return -1;
+    if (this.chainPlanned < 0) return -1;
+    const last = this.queue[this.queue.length - 1];
+    const now = this.ctx.currentTime;
+    // the queue may already hold the next chain part (lookahead)
+    if (last && last.t0 > now && this.queue.length > 1) {
+      const n = this.chain.parts.length;
+      return (this.chainPlanned - 1 + n) % n;
+    }
+    return this.chainPlanned;
   }
   // Time until the planned transition (sec of ctx time), null if none is planned
   transitionEta() {
@@ -1721,6 +1838,7 @@ class LoopPlayer {
   }
   stop(notify = true) {
     this.playing = false;
+    this.chain = null;
     this.advanceArmed = false;
     this.targetIndex = null;
     clearTimeout(this._reschedT);
@@ -1745,6 +1863,81 @@ class LoopPlayer {
     if (now < cur.t0) return cur.trackStart;
     return cur.trackStart + (now - cur.t0) * (this.rate || 1);
   }
+}
+
+// Part chain: parts played one pass each, in order, round and round.
+function ChainBar({
+  t,
+  segments,
+  parts,
+  setParts,
+  edit,
+  setEdit,
+  active,
+  nowPos,
+  onPlay,
+  onStop
+}) {
+  const col = i => {
+    const s = segments[i];
+    return s ? SEG_COLORS[(s.group ? s.group.charCodeAt(0) - 65 : i) % SEG_COLORS.length] : 'var(--muted)';
+  };
+  if (!edit && !parts.length) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "chain-bar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "ghost tip",
+      "data-tip": t.chain_tip,
+      onClick: () => setEdit(true)
+    }, t.chain_build));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "chain-bar"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "badge tip",
+    "data-tip": t.chain_tip
+  }, "\u26D3 ", t.chain_title), parts.length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "hint"
+  }, t.chain_empty), parts.map((p, k) => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: k
+  }, k > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "chain-arrow"
+  }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+    className: 'chain-step' + (active && nowPos === k ? ' on' : '')
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "dot",
+    style: {
+      background: col(p)
+    }
+  }), segments[p] ? segments[p].label : '?', edit && /*#__PURE__*/React.createElement("span", {
+    className: "x",
+    title: t.chain_remove_tip,
+    onClick: () => setParts(ps => ps.filter((_, j) => j !== k))
+  }, "\u2715")))), parts.length > 1 && /*#__PURE__*/React.createElement("span", {
+    className: "chain-arrow"
+  }, "\u21BA"), edit && /*#__PURE__*/React.createElement("span", {
+    className: "hint"
+  }, t.chain_build_hint), edit && /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => setEdit(false)
+  }, t.chain_done), !edit && /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => setEdit(true)
+  }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => {
+      setParts([]);
+      setEdit(false);
+      if (active) onStop();
+    }
+  }, t.chain_clear), !active ? /*#__PURE__*/React.createElement("button", {
+    className: "primary chain-play",
+    disabled: !parts.length,
+    onClick: onPlay
+  }, t.chain_play) : /*#__PURE__*/React.createElement("button", {
+    className: "chain-stop",
+    onClick: onStop
+  }, t.chain_stop));
 }
 
 // Track name form (Add to library / rename). Enter saves, Esc cancels.
@@ -2593,6 +2786,14 @@ function App() {
   // when a transition lands (Next, part click, hotkeys, scenes):
   // natural (loop end) | soon (phrase boundary) | now (short crossfade)
   const [cueMode, setCueMode] = useState('natural');
+  // part chain of the open track (not saved with the markup: a working list).
+  // chainEdit: picking parts for it by clicking the chips
+  const [chainParts, setChainParts] = useState([]);
+  const [chainEdit, setChainEdit] = useState(false);
+  useEffect(() => {
+    setChainParts([]);
+    setChainEdit(false);
+  }, [trackId]);
   // --- Scenes: saved playback states of this track (part + layers + fx) ----
   const [scenes, setScenesRaw] = useState([]);
   const [liveMode, setLiveMode] = useState(false);
@@ -4167,6 +4368,18 @@ function App() {
   };
   const playingSeg = player.playing ? player.segIndex : -1;
   const duration = analysis ? analysis.duration : 0;
+  // parts deleted / re-analysed: keep only chain steps that still exist
+  useEffect(() => {
+    setChainParts(cp => cp.filter(i => i < segments.length));
+    if (player.chain && player.chain.parts.some(i => i >= segments.length)) player.stopChain();
+  }, [segments.length]);
+  const chainActive = !!player.chain;
+  const chainNow = player.chainNow();
+  const playChain = () => {
+    if (!chainParts.length) return;
+    setChainEdit(false);
+    player.startChain(chainParts, cueMode);
+  };
   const splitRef = useRef(splitAtPlayhead);
   splitRef.current = splitAtPlayhead;
   // hotkey handlers read the latest state through a ref (the listener is bound once)
@@ -4886,8 +5099,12 @@ function App() {
     const isQueued = player.pendingTarget() === i;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
-      className: 'seg-chip' + (i === player.segIndex ? ' active' : '') + (isQueued ? ' queued' : ''),
+      className: 'seg-chip' + (i === player.segIndex ? ' active' : '') + (isQueued ? ' queued' : '') + (chainEdit ? ' chain-pick' : ''),
       onClick: () => {
+        if (chainEdit) {
+          setChainParts(cp => [...cp, i]);
+          return;
+        }
         if (!player.playing) {
           player.segIndex = i;
           force(x => x + 1);
@@ -4899,7 +5116,7 @@ function App() {
         }
         player.cue(i, cueMode);
       },
-      title: player.playing ? t.chip_cue_tip : t.chip_select_tip
+      title: chainEdit ? t.chain_add_tip : player.playing ? t.chip_cue_tip : t.chip_select_tip
     }, /*#__PURE__*/React.createElement("div", {
       className: "dot",
       style: {
@@ -4931,7 +5148,10 @@ function App() {
       style: {
         color: 'var(--accent)'
       }
-    }, t.queued_badge), /*#__PURE__*/React.createElement("span", {
+    }, t.queued_badge), chainParts.includes(i) && /*#__PURE__*/React.createElement("span", {
+      className: "chain-n",
+      title: t.chain_title
+    }, chainParts.map((p, k) => p === i ? k + 1 : null).filter(x => x).join(',')), /*#__PURE__*/React.createElement("span", {
       className: "x",
       title: t.loop_toggle_tip,
       style: {
@@ -5023,7 +5243,18 @@ function App() {
         removeSeg(i);
       }
     }, "\u2715"));
-  }))), analysis && /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(ChainBar, {
+    t: t,
+    segments: segments,
+    parts: chainParts,
+    setParts: setChainParts,
+    edit: chainEdit,
+    setEdit: setChainEdit,
+    active: chainActive,
+    nowPos: chainNow,
+    onPlay: playChain,
+    onStop: () => player.stopChain()
+  })), analysis && /*#__PURE__*/React.createElement("div", {
     className: "panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row between"
@@ -5067,7 +5298,13 @@ function App() {
     className: "now"
   }, player.playing && /*#__PURE__*/React.createElement("span", {
     className: "eq"
-  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null)), player.playing ? /*#__PURE__*/React.createElement("span", null, t.playing, " ", /*#__PURE__*/React.createElement("b", null, segments[player.segIndex] ? segments[player.segIndex].label : '–'), "\xA0\xB7 ", t.pass, player.loopCount, t.pass_suffix || '', (() => {
+  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null)), player.playing ? /*#__PURE__*/React.createElement("span", null, t.playing, " ", /*#__PURE__*/React.createElement("b", null, segments[player.segIndex] ? segments[player.segIndex].label : '–'), chainActive && chainNow >= 0 && /*#__PURE__*/React.createElement("span", {
+    className: "time",
+    style: {
+      marginLeft: 6,
+      color: 'var(--accent2)'
+    }
+  }, "\u26D3 ", chainNow + 1, "/", player.chain.parts.length), "\xA0\xB7 ", t.pass, player.loopCount, t.pass_suffix || '', (() => {
     const tgt = player.pendingTarget();
     if (tgt == null || !segments[tgt]) return null;
     const eta = player.transitionEta();
@@ -6076,7 +6313,28 @@ function App() {
       className: "live-name"
     }, tgt != null && segments[tgt] ? segments[tgt].label : '—'), /*#__PURE__*/React.createElement("div", {
       className: "live-sub"
-    }, tgt != null ? eta != null ? `${t.live_in} ${Math.max(0, eta).toFixed(0)} s` : t.live_at_boundary : t.live_pick))), /*#__PURE__*/React.createElement("div", {
+    }, tgt != null ? eta != null ? `${t.live_in} ${Math.max(0, eta).toFixed(0)} s` : t.live_at_boundary : t.live_pick))), chainParts.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "live-chain"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "live-label",
+      style: {
+        marginRight: 4
+      }
+    }, "\u26D3 ", t.chain_title), chainParts.map((p, k) => /*#__PURE__*/React.createElement(React.Fragment, {
+      key: k
+    }, k > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "chain-arrow"
+    }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+      className: 'chain-step' + (chainActive && chainNow === k ? ' on' : '')
+    }, segments[p] ? segments[p].label : '?'))), /*#__PURE__*/React.createElement("span", {
+      className: "chain-arrow"
+    }, "\u21BA"), !chainActive ? /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      onClick: playChain
+    }, t.chain_play) : /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      onClick: () => player.stopChain()
+    }, t.chain_stop)), /*#__PURE__*/React.createElement("div", {
       className: "live-grid"
     }, items.map((it, k) => {
       const firstSeg = it.kind === 'seg' && (k === 0 || items[k - 1].kind !== 'seg');

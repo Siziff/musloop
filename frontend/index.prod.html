@@ -213,6 +213,17 @@
   .seg-chip:hover { border-color: var(--border); }
   .seg-chip.active { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
   .seg-chip.queued { border-color: var(--accent); border-style: dashed; animation: pulse 1.1s infinite; }
+  .seg-chip.chain-pick { cursor: copy; }
+  .seg-chip .chain-n { font-family: var(--mono); font-size: 10.5px; color: var(--accent2); }
+  .chain-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .chain-step { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--panel2); font-size: 12.5px; }
+  .chain-step .dot { width: 8px; height: 8px; border-radius: 2px; }
+  .chain-step.on { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
+  .chain-step .x { color: var(--muted); cursor: pointer; padding: 0 2px; }
+  .chain-step .x:hover { color: var(--danger); }
+  .chain-arrow { color: var(--muted); font-size: 12px; }
+  .live-chain { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
   .seg-chip .dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
   [data-theme="tavern"] .seg-chip .dot { transform: rotate(45deg); border-radius: 1px; }
   .seg-chip input {
@@ -676,6 +687,6 @@
     }
   });
 </script>
-<script defer src="app.js?v=cf37bf8356"></script>
+<script defer src="app.js?v=69f3adf4e1"></script>
 </body>
 </html>
