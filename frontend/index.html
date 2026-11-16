@@ -68,6 +68,118 @@
     --wave-barnum: #e8c778;
     --tip-bg: #2f2213;
   }
+  /* ============ THEME: forest — fresh green, leaves ============ */
+  [data-theme="forest"] {
+    --bg: #0e1a13; --panel: #13241a; --panel2: #193022;
+    --text: #e6f2e2; --muted: #8fae94;
+    --accent: #8be07a; --accent2: #4fd1a5; --danger: #ff7a6b;
+    --border: #284a33; --border-soft: #1f3b29;
+    --glow: rgba(139,224,122,.28);
+    --radius: 14px; --radius-sm: 10px;
+    --font: 'Nunito', 'PingFang SC', system-ui, sans-serif;
+    --font-title: 'Fraunces', Georgia, serif;
+    --mono: 'JetBrains Mono', monospace;
+    --btn-primary-bg: linear-gradient(180deg, #9be88a, #6cc85d); --btn-primary-fg: #0e2414;
+    --btn-go-bg: linear-gradient(180deg, #5fdcb1, #3bb98d); --btn-go-fg: #062218;
+    --btn-ai-bg: transparent; --btn-ai-fg: #c8f08a; --btn-ai-border: #8be07a;
+    --on-accent: #0e2414;
+    --bg-image:
+      radial-gradient(900px 520px at 10% -10%, rgba(139,224,122,.10), transparent 60%),
+      radial-gradient(700px 480px at 95% 0%, rgba(79,209,165,.08), transparent 55%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%237fc77a' stroke-opacity='.10' stroke-width='1.4'%3E%3Cpath d='M30 70c18-30 52-34 70-18-16 26-48 36-70 18z'/%3E%3Cpath d='M30 70c22-6 44-12 70-18'/%3E%3Cpath d='M150 40c8 26 34 40 56 32-6-26-32-42-56-32z'/%3E%3Cpath d='M150 40c18 10 36 22 56 32'/%3E%3Cpath d='M120 170c-26-14-30-46-14-64 24 14 32 44 14 64z'/%3E%3Cpath d='M120 170c-6-22-10-44-14-64'/%3E%3Cpath d='M190 150c-20 4-34 20-30 38 20-2 34-18 30-38z'/%3E%3Cpath d='M44 182c-4-16 6-30 22-32 4 16-6 30-22 32z'/%3E%3C/g%3E%3C/svg%3E");
+    --panel-shadow: 0 8px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(230,242,226,.04);
+    --wave-bg: #0b170f;
+    --wave-line: #d6efcf;
+    --wave-playhead: #ffd56b;
+    --wave-bound: rgba(139,224,122,.7);
+    --wave-bar: rgba(214,239,207,.09);
+    --wave-downbeat: rgba(214,239,207,.22);
+    --wave-phrase: rgba(139,224,122,.5);
+    --wave-barnum: #a8ec98;
+    --tip-bg: #193022;
+  }
+  [data-theme="forest"] h1 { color: var(--accent); font-weight: 600; letter-spacing: .5px; font-size: 27px; }
+  [data-theme="forest"] h1::before { content: '🌿 '; }
+  [data-theme="forest"] h1::after { content: ''; animation: none; }
+  [data-theme="forest"] .panel-title { font-size: 14px; color: var(--accent); text-transform: none; letter-spacing: .5px; }
+  [data-theme="forest"] .panel-title::before { content: '❦ '; color: var(--accent2); }
+  [data-theme="forest"] button { font-weight: 700; }
+  [data-theme="forest"] .seg-chip .dot { border-radius: 50% 0 50% 0; }
+  [data-theme="forest"] .panel { border-color: var(--border-soft); }
+
+  /* ============ THEME: dawn — light, warm paper ============ */
+  [data-theme="dawn"] {
+    --bg: #f6f1e7; --panel: #fffaf1; --panel2: #f1e9da;
+    --text: #2b2620; --muted: #716757;
+    --accent: #c4502a; --accent2: #23805f; --danger: #c03030;
+    --border: #e2d6c2; --border-soft: #ece3d4;
+    --glow: rgba(224,103,63,.22);
+    --radius: 12px; --radius-sm: 8px;
+    --font: 'Nunito', 'PingFang SC', system-ui, sans-serif;
+    --font-title: 'Fraunces', Georgia, serif;
+    --mono: 'JetBrains Mono', monospace;
+    --btn-primary-bg: #b8461f; --btn-primary-fg: #fffaf1;
+    --btn-go-bg: #1f7356; --btn-go-fg: #fffaf1;
+    --btn-ai-bg: transparent; --btn-ai-fg: #7a4fd1; --btn-ai-border: #b39ae8;
+    --on-accent: #fffaf1;
+    --bg-image:
+      radial-gradient(900px 500px at 0% -10%, rgba(255,190,120,.35), transparent 60%),
+      radial-gradient(800px 520px at 100% 0%, rgba(255,150,170,.18), transparent 55%);
+    --panel-shadow: 0 6px 22px rgba(120,90,50,.10);
+    --wave-bg: #fbf5ea;
+    --wave-line: #3a332a;
+    --wave-playhead: #c4502a;
+    --wave-bound: rgba(43,38,32,.6);
+    --wave-bar: rgba(43,38,32,.10);
+    --wave-downbeat: rgba(43,38,32,.24);
+    --wave-phrase: rgba(196,80,42,.5);
+    --wave-barnum: #b8461f;
+    --wave-hatch: #2b262018;
+    --tip-bg: #2b2620;
+  }
+  [data-theme="dawn"] h1 { font-weight: 600; font-size: 27px; }
+  [data-theme="dawn"] h1::before { content: '☀ '; color: var(--accent); }
+  [data-theme="dawn"] h1::after { content: ''; animation: none; }
+  [data-theme="dawn"] .panel-title { font-size: 14px; color: var(--text); text-transform: none; letter-spacing: .3px; }
+  [data-theme="dawn"] .panel-title::before { content: ''; }
+  [data-theme="dawn"] .tip::after { color: #fffaf1; }
+  [data-theme="dawn"] kbd { color: var(--text); }
+
+  /* ============ THEME: ocean — deep blue, teal ============ */
+  [data-theme="ocean"] {
+    --bg: #07131f; --panel: #0c1d2d; --panel2: #11283c;
+    --text: #e2f1fb; --muted: #7f9db3;
+    --accent: #4fd8e0; --accent2: #7aa8ff; --danger: #ff7d8a;
+    --border: #1d3a52; --border-soft: #163049;
+    --glow: rgba(79,216,224,.28);
+    --radius: 10px; --radius-sm: 8px;
+    --font: 'Nunito', 'PingFang SC', system-ui, sans-serif;
+    --font-title: 'Space Grotesk', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --btn-primary-bg: linear-gradient(180deg, #5ee3ea, #2fb5c4); --btn-primary-fg: #04202a;
+    --btn-go-bg: linear-gradient(180deg, #8bb4ff, #5b88f0); --btn-go-fg: #061433;
+    --btn-ai-bg: transparent; --btn-ai-fg: #b9a2ff; --btn-ai-border: #8f74f0;
+    --on-accent: #04202a;
+    --bg-image:
+      radial-gradient(1000px 600px at 50% -20%, rgba(79,216,224,.12), transparent 60%),
+      radial-gradient(700px 500px at 100% 100%, rgba(122,168,255,.08), transparent 60%);
+    --panel-shadow: 0 10px 30px rgba(0,0,0,.35);
+    --wave-bg: #061220;
+    --wave-line: #cfe9f7;
+    --wave-playhead: #ffd166;
+    --wave-bound: rgba(79,216,224,.7);
+    --wave-bar: rgba(207,233,247,.09);
+    --wave-downbeat: rgba(207,233,247,.22);
+    --wave-phrase: rgba(79,216,224,.5);
+    --wave-barnum: #7fe6ec;
+    --tip-bg: #11283c;
+  }
+  [data-theme="ocean"] h1 { color: var(--accent); font-size: 26px; }
+  [data-theme="ocean"] h1::before { content: '〰 '; }
+  [data-theme="ocean"] h1::after { content: ''; animation: none; }
+  [data-theme="ocean"] .panel-title { color: var(--accent); }
+  [data-theme="ocean"] .panel-title::before { content: '≈ '; }
+
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
@@ -686,7 +798,7 @@
   .live-bar .hint { width: 100%; margin-top: 4px; }
   @media (max-width: 760px) { .live-stage { grid-template-columns: 1fr; } .live { padding: 14px; } }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono&family=IM+Fell+English:ital@0;1&family=Alegreya:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono&family=IM+Fell+English:ital@0;1&family=Alegreya:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Nunito:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 </head>
 <body>
 <div id="root"></div>
@@ -709,9 +821,25 @@
 
 const { useState, useRef, useEffect, useCallback } = React;
 
-const SEG_COLORS = ['#6a8dff','#34d399','#ffb84f','#ff5b8a','#a06bff',
+const THEMES = [
+  { id: 'mono', icon: '▪' }, { id: 'tavern', icon: '⚔' },
+  { id: 'forest', icon: '🌿' }, { id: 'dawn', icon: '☀' }, { id: 'ocean', icon: '〰' },
+];
+const SEG_COLORS_DARK = ['#6a8dff','#34d399','#ffb84f','#ff5b8a','#a06bff',
                     '#4fd6ff','#c9e04f','#ff8a4f','#5bffb0','#fb6a6a',
                     '#8a9bff','#ffd75b'];
+// the same hues, darker: readable on the light theme
+const SEG_COLORS_LIGHT = ['#3550c8','#0f7d57','#a8650a','#c2185b','#6a35c9',
+                    '#0b7fa3','#6f7d0f','#b84a14','#0d8a5f','#b8323a',
+                    '#4a55c4','#8f6a00'];
+// mutated in place on a theme change so every `SEG_COLORS[...]` follows it
+const SEG_COLORS = SEG_COLORS_DARK.slice();
+const LIGHT_THEMES = new Set(['dawn']);
+function applySegPalette(theme) {
+  const src = LIGHT_THEMES.has(theme) ? SEG_COLORS_LIGHT : SEG_COLORS_DARK;
+  for (let i = 0; i < src.length; i++) SEG_COLORS[i] = src[i];
+}
+try { applySegPalette(localStorage.getItem('musloop_theme')); } catch (e) {}
 
 // =============================== i18n ======================================
 const STR = {
@@ -824,6 +952,9 @@ const STR = {
     volume_tip: 'Громкость (клик по иконке — выкл/вкл)',
     theme_mono: 'Тема: минимал',
     theme_tavern: 'Тема: таверна (D&D)',
+    theme_forest: 'Тема: лес',
+    theme_dawn: 'Тема: рассвет (светлая)',
+    theme_ocean: 'Тема: океан',
     beep_tip: 'Тест звука: короткий бип напрямую в аудиовыход',
     files_menu: '⤓⤒ Файлы',
     drop_compact_hint: 'перетащите аудио или *.musloop.json — заменить / применить',
@@ -1125,6 +1256,9 @@ const STR = {
     volume_tip: 'Volume (click icon to mute/unmute)',
     theme_mono: 'Theme: minimal',
     theme_tavern: 'Theme: tavern (D&D)',
+    theme_forest: 'Theme: forest',
+    theme_dawn: 'Theme: dawn (light)',
+    theme_ocean: 'Theme: ocean',
     beep_tip: 'Sound test: a short beep straight to the audio output',
     files_menu: '⤓⤒ Files',
     drop_compact_hint: 'drop audio or *.musloop.json here to replace / apply',
@@ -1427,6 +1561,9 @@ const STR = {
     volume_tip: '音量（点击图标静音/取消静音）',
     theme_mono: '主题：极简',
     theme_tavern: '主题：酒馆（D&D）',
+    theme_forest: '主题：森林',
+    theme_dawn: '主题：黎明（浅色）',
+    theme_ocean: '主题：海洋',
     beep_tip: '声音测试：直接向音频输出发送短促提示音',
     files_menu: '⤓⤒ 文件',
     drop_compact_hint: '拖入音频或 *.musloop.json — 替换 / 应用',
@@ -1635,6 +1772,7 @@ function themeColors() {
     phrase: v('--wave-phrase') || 'rgba(216,255,62,.4)',
     barNum: v('--wave-barnum') || '#d8ff3e',
     accent2: v('--accent2') || '#d8ff3e',
+    hatch: v('--wave-hatch') || '#ffffff14',
     danger: v('--danger') || '#ff6b6b',
   };
 }
@@ -2747,7 +2885,7 @@ function Waveform({ buffer, segments, setSegments, beats, downbeats, snap,
         ctx.beginPath();
         ctx.rect(tx(s.start), 0, tx(s.end) - tx(s.start), H);
         ctx.clip();
-        ctx.strokeStyle = '#ffffff14';
+        ctx.strokeStyle = TC.hatch;
         ctx.beginPath();
         const step = 14;
         for (let x = tx(s.start) - H; x < tx(s.end); x += step) {
@@ -3198,11 +3336,12 @@ function App() {
   // --- UI theme --------------------------------------------------------------
   const [theme, setThemeState] = useState(() => {
     const t0 = localStorage.getItem('musloop_theme');
-    return (t0 === 'tavern' || t0 === 'mono') ? t0 : 'mono';
+    return THEMES.some(x => x.id === t0) ? t0 : 'mono';
   });
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('musloop_theme', theme);
+    applySegPalette(theme);
   }, [theme]);
 
   const [trackId, setTrackId] = useState(null);
@@ -4681,15 +4820,13 @@ function App() {
             title={t.drawer_tip} aria-label={t.drawer_tip} aria-expanded={drawerOpen}>
             <span className="burger"><i></i><i></i><i></i></span>
           </button>
-          <h1>{theme === 'tavern' ? 'Musloop' : 'musloop'}</h1>
+          <h1>{theme === 'mono' ? 'musloop' : 'Musloop'}</h1>
           <div className="sub">{t.tagline}</div>
         </div>
         <div className="row" style={{ gap: 0 }}>
           <div className="theme-switch">
-            <button className={theme === 'mono' ? 'on' : ''} title={t.theme_mono}
-              onClick={() => setThemeState('mono')}>▪</button>
-            <button className={theme === 'tavern' ? 'on' : ''} title={t.theme_tavern}
-              onClick={() => setThemeState('tavern')}>⚔</button>
+            {THEMES.map(th => <button key={th.id} className={theme === th.id ? 'on' : ''} title={t['theme_' + th.id]}
+              onClick={() => setThemeState(th.id)}>{th.icon}</button>)}
           </div>
           <div className="lang-switch">
             <button className={lang === 'ru' ? 'on' : ''} onClick={() => setLanguage('ru')}>RU</button>

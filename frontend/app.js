@@ -5,7 +5,35 @@ const {
   useEffect,
   useCallback
 } = React;
-const SEG_COLORS = ['#6a8dff', '#34d399', '#ffb84f', '#ff5b8a', '#a06bff', '#4fd6ff', '#c9e04f', '#ff8a4f', '#5bffb0', '#fb6a6a', '#8a9bff', '#ffd75b'];
+const THEMES = [{
+  id: 'mono',
+  icon: '▪'
+}, {
+  id: 'tavern',
+  icon: '⚔'
+}, {
+  id: 'forest',
+  icon: '🌿'
+}, {
+  id: 'dawn',
+  icon: '☀'
+}, {
+  id: 'ocean',
+  icon: '〰'
+}];
+const SEG_COLORS_DARK = ['#6a8dff', '#34d399', '#ffb84f', '#ff5b8a', '#a06bff', '#4fd6ff', '#c9e04f', '#ff8a4f', '#5bffb0', '#fb6a6a', '#8a9bff', '#ffd75b'];
+// the same hues, darker: readable on the light theme
+const SEG_COLORS_LIGHT = ['#3550c8', '#0f7d57', '#a8650a', '#c2185b', '#6a35c9', '#0b7fa3', '#6f7d0f', '#b84a14', '#0d8a5f', '#b8323a', '#4a55c4', '#8f6a00'];
+// mutated in place on a theme change so every `SEG_COLORS[...]` follows it
+const SEG_COLORS = SEG_COLORS_DARK.slice();
+const LIGHT_THEMES = new Set(['dawn']);
+function applySegPalette(theme) {
+  const src = LIGHT_THEMES.has(theme) ? SEG_COLORS_LIGHT : SEG_COLORS_DARK;
+  for (let i = 0; i < src.length; i++) SEG_COLORS[i] = src[i];
+}
+try {
+  applySegPalette(localStorage.getItem('musloop_theme'));
+} catch (e) {}
 
 // =============================== i18n ======================================
 const STR = {
@@ -118,6 +146,9 @@ const STR = {
     volume_tip: 'Громкость (клик по иконке — выкл/вкл)',
     theme_mono: 'Тема: минимал',
     theme_tavern: 'Тема: таверна (D&D)',
+    theme_forest: 'Тема: лес',
+    theme_dawn: 'Тема: рассвет (светлая)',
+    theme_ocean: 'Тема: океан',
     beep_tip: 'Тест звука: короткий бип напрямую в аудиовыход',
     files_menu: '⤓⤒ Файлы',
     drop_compact_hint: 'перетащите аудио или *.musloop.json — заменить / применить',
@@ -419,6 +450,9 @@ const STR = {
     volume_tip: 'Volume (click icon to mute/unmute)',
     theme_mono: 'Theme: minimal',
     theme_tavern: 'Theme: tavern (D&D)',
+    theme_forest: 'Theme: forest',
+    theme_dawn: 'Theme: dawn (light)',
+    theme_ocean: 'Theme: ocean',
     beep_tip: 'Sound test: a short beep straight to the audio output',
     files_menu: '⤓⤒ Files',
     drop_compact_hint: 'drop audio or *.musloop.json here to replace / apply',
@@ -721,6 +755,9 @@ const STR = {
     volume_tip: '音量（点击图标静音/取消静音）',
     theme_mono: '主题：极简',
     theme_tavern: '主题：酒馆（D&D）',
+    theme_forest: '主题：森林',
+    theme_dawn: '主题：黎明（浅色）',
+    theme_ocean: '主题：海洋',
     beep_tip: '声音测试：直接向音频输出发送短促提示音',
     files_menu: '⤓⤒ 文件',
     drop_compact_hint: '拖入音频或 *.musloop.json — 替换 / 应用',
@@ -929,6 +966,7 @@ function themeColors() {
     phrase: v('--wave-phrase') || 'rgba(216,255,62,.4)',
     barNum: v('--wave-barnum') || '#d8ff3e',
     accent2: v('--accent2') || '#d8ff3e',
+    hatch: v('--wave-hatch') || '#ffffff14',
     danger: v('--danger') || '#ff6b6b'
   };
 }
@@ -2348,7 +2386,7 @@ function Waveform({
         ctx.beginPath();
         ctx.rect(tx(s.start), 0, tx(s.end) - tx(s.start), H);
         ctx.clip();
-        ctx.strokeStyle = '#ffffff14';
+        ctx.strokeStyle = TC.hatch;
         ctx.beginPath();
         const step = 14;
         for (let x = tx(s.start) - H; x < tx(s.end); x += step) {
@@ -2938,11 +2976,12 @@ function App() {
   // --- UI theme --------------------------------------------------------------
   const [theme, setThemeState] = useState(() => {
     const t0 = localStorage.getItem('musloop_theme');
-    return t0 === 'tavern' || t0 === 'mono' ? t0 : 'mono';
+    return THEMES.some(x => x.id === t0) ? t0 : 'mono';
   });
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('musloop_theme', theme);
+    applySegPalette(theme);
   }, [theme]);
   const [trackId, setTrackId] = useState(null);
   const [trackName, setTrackName] = useState('');
@@ -5135,7 +5174,7 @@ function App() {
     "aria-expanded": drawerOpen
   }, /*#__PURE__*/React.createElement("span", {
     className: "burger"
-  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null))), /*#__PURE__*/React.createElement("h1", null, theme === 'tavern' ? 'Musloop' : 'musloop'), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null))), /*#__PURE__*/React.createElement("h1", null, theme === 'mono' ? 'musloop' : 'Musloop'), /*#__PURE__*/React.createElement("div", {
     className: "sub"
   }, t.tagline)), /*#__PURE__*/React.createElement("div", {
     className: "row",
@@ -5144,15 +5183,12 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "theme-switch"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: theme === 'mono' ? 'on' : '',
-    title: t.theme_mono,
-    onClick: () => setThemeState('mono')
-  }, "\u25AA"), /*#__PURE__*/React.createElement("button", {
-    className: theme === 'tavern' ? 'on' : '',
-    title: t.theme_tavern,
-    onClick: () => setThemeState('tavern')
-  }, "\u2694")), /*#__PURE__*/React.createElement("div", {
+  }, THEMES.map(th => /*#__PURE__*/React.createElement("button", {
+    key: th.id,
+    className: theme === th.id ? 'on' : '',
+    title: t['theme_' + th.id],
+    onClick: () => setThemeState(th.id)
+  }, th.icon))), /*#__PURE__*/React.createElement("div", {
     className: "lang-switch"
   }, /*#__PURE__*/React.createElement("button", {
     className: lang === 'ru' ? 'on' : '',
