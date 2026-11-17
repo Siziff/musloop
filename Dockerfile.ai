@@ -26,7 +26,10 @@ RUN python -m venv /venv
 COPY requirements.txt /tmp/requirements.txt
 RUN /venv/bin/pip install --upgrade pip \
  && /venv/bin/pip install -r /tmp/requirements.txt \
- && ln -s "$(/venv/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /venv/bin/ffmpeg \
+ && ln -s "$(/venv/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /venv/bin/ffmpeg
+# YouTube "proof of origin" token generator (bgutil) -> /app/.potoken
+COPY tools/setup_potoken.py /build/tools/setup_potoken.py
+RUN /venv/bin/python /build/tools/setup_potoken.py \
  && /venv/bin/pip uninstall -y pip \
  && find /venv -type d \( -name tests -o -name __pycache__ \) -prune -exec rm -rf {} +
 
@@ -96,6 +99,7 @@ COPY --from=ai-deps /venv-ai /venv-ai
 COPY --from=app-deps /venv /venv
 RUN ln -s /venv/bin/ffmpeg /venv-ai/bin/ffmpeg
 WORKDIR /app
+COPY --from=app-deps --chown=musloop:musloop /build/.potoken ./.potoken
 COPY --chown=musloop:musloop backend ./backend
 COPY --chown=musloop:musloop frontend ./frontend
 COPY --chown=musloop:musloop tools/songformer_analyze.py tools/demix.py ./tools/

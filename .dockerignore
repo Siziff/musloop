@@ -15,6 +15,7 @@ assets
 tools
 !tools/songformer_analyze.py
 !tools/demix.py
+!tools/setup_potoken.py
 **/__pycache__
 **/*.pyc
 *.log
