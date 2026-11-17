@@ -14,12 +14,13 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 rem packages added in later versions (phone remote): install them after a git pull
-".venv\Scripts\python.exe" -c "import websockets, segno, yt_dlp_ejs" >nul 2>nul
+".venv\Scripts\python.exe" -c "import websockets, segno, yt_dlp_ejs, yt_dlp_plugins.extractor.getpot_bgutil" >nul 2>nul
 if errorlevel 1 (
   echo Installing new dependencies ^(requirements.txt^) ...
   ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt
-  ".venv\Scripts\python.exe" -m pip install --quiet --upgrade "yt-dlp[default]"
+  ".venv\Scripts\python.exe" -m pip install --quiet --upgrade "yt-dlp[default]" bgutil-ytdlp-pot-provider
 )
+if not exist ".potoken\server\node_modules" ".venv\Scripts\python.exe" tools\setup_potoken.py
 
 rem Load local settings from .env if present (KEY=VALUE lines)
 if exist ".env" (

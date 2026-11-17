@@ -38,3 +38,4 @@ docker-compose.yml
 frontend/remote.src.js
 mobile
 library
+.potoken

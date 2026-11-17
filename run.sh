@@ -40,12 +40,14 @@ command -v ffmpeg >/dev/null || echo "NOTE: system ffmpeg not found — using bu
 python3 -c "import fastapi, uvicorn, librosa" 2>/dev/null || {
   echo "Dependencies are not installed. Run: ./setup.sh"; exit 1; }
 # packages added in later versions (phone remote): install them after a git pull
-if ! python3 -c "import websockets, segno, yt_dlp_ejs" 2>/dev/null; then
+if ! python3 -c "import websockets, segno, yt_dlp_ejs, yt_dlp_plugins.extractor.getpot_bgutil" 2>/dev/null; then
   echo "Installing new dependencies (requirements.txt) ..."
   python3 -m pip install --quiet -r requirements.txt || { echo "Run: ./setup.sh"; exit 1; }
   # an older yt-dlp has no YouTube challenge solver: take the newest
-  python3 -m pip install --quiet --upgrade "yt-dlp[default]" || true
+  python3 -m pip install --quiet --upgrade "yt-dlp[default]" bgutil-ytdlp-pot-provider || true
 fi
+# YouTube download token generator (missing after a git pull of an older install)
+[ -d .potoken/server/node_modules ] || python3 tools/setup_potoken.py || true
 if python3 -c "import yt_dlp" 2>/dev/null || command -v yt-dlp >/dev/null; then
   echo "URL import (yt-dlp): available"
 else

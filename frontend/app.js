@@ -2082,11 +2082,18 @@ function encodeWav(buf, frames) {
 // Samples play on the track player's AudioContext, straight into the output
 // (not through the track's master), so the track's fades and volume don't
 // touch them. One voice per sample: pressing it again stops it.
+//
+// Beat sync ("on the beat", default on): the sample's first bar line lands on
+// the next bar line of the playing track (a beat for samples shorter than a
+// bar), its speed follows the track's tempo when they are close (±10%), and a
+// looped sample is re-aligned to the track's bar lines on every pass, so it
+// can't drift. A loop pass is the sample's bars only, not the reverb tail.
 class SamplePlayer {
   constructor(player) {
     this.player = player;
     this.buffers = {};
     this.voices = {};
+    this.pending = new Set();
     this.volume = 1;
     this.onState = () => {};
   }
@@ -2100,52 +2107,209 @@ class SamplePlayer {
   playing(id) {
     return !!this.voices[id];
   }
+  // the sample's own grid: where its first bar line is, how long its bars are
+  _info(sm, buf) {
+    let body = sm.body || (sm.to != null && sm.from != null ? (sm.to - sm.from) / (sm.rate || 1) : buf.duration);
+    body = Math.min(body, buf.duration);
+    const dbs = Array.isArray(sm.downbeats) ? sm.downbeats.filter(x => x >= 0 && x < body) : [];
+    const d0 = dbs.length && dbs[0] < body / 2 ? dbs[0] : 0;
+    let barLen = null;
+    if (dbs.length >= 2) {
+      const d = dbs.slice(1).map((x, i) => x - dbs[i]).sort((a, b) => a - b);
+      barLen = d[Math.floor(d.length / 2)];
+    }
+    return {
+      body,
+      d0,
+      barLen,
+      bpm: sm.bpm || null
+    };
+  }
+  // track tempo now (BPM as heard, speed included) from the beats around the playhead
+  _trackBpm() {
+    const P = this.player,
+      pos = P.position(),
+      b = P.beats || [];
+    if (pos == null || b.length < 4) return null;
+    let i = b.findIndex(x => x > pos);
+    if (i < 0) i = b.length - 1;
+    const w = b.slice(Math.max(0, i - 8), Math.min(b.length, i + 8));
+    const d = w.slice(1).map((x, k) => x - w[k]).sort((a, c) => a - c);
+    const per = d[Math.floor(d.length / 2)];
+    return per > 0 ? 60 / per * (P.rate || 1) : null;
+  }
+  // track bar lines (or beats) as AudioContext times, from what the player has planned
+  _grid(fromCtx, toCtx, bars) {
+    const P = this.player;
+    if (!P.playing || !P.queue.length) return [];
+    const list = (bars ? P.downbeats : P.beats) || [],
+      r = P.rate || 1,
+      out = [];
+    for (const q of P.queue) {
+      const a = Math.max(q.t0, fromCtx),
+        b = Math.min(q.t1, toCtx);
+      if (b <= a) continue;
+      const pa = q.trackStart + (a - q.t0) * r,
+        pb = q.trackStart + (b - q.t0) * r;
+      for (const x of list) if (x >= pa && x < pb) out.push(q.t0 + (x - q.trackStart) / r);
+    }
+    out.sort((x, y) => x - y);
+    return out.filter((x, k) => k === 0 || x - out[k - 1] > 0.03); // crossfade overlaps
+  }
+  // bar length of the track now, in ctx seconds
+  _trackBarCtx() {
+    const P = this.player,
+      pos = P.position(),
+      d = P.downbeats || [];
+    if (pos == null || d.length < 2) return null;
+    let i = d.findIndex(x => x > pos);
+    if (i < 1) i = 1;
+    return (d[i] - d[i - 1]) / (P.rate || 1);
+  }
   async trigger(sm, opts = {}) {
     if (this.voices[sm.id]) {
       this.stop(sm.id);
       return;
     }
-    const buf = await this.load(sm);
-    const ctx = this.player.ctx;
-    // "on the beat": start on the next beat of the playing track
-    let when = ctx.currentTime + 0.02;
-    if (opts.onBeat && this.player.playing) {
-      const pos = this.player.position();
-      const beats = this.player.beats || [];
-      const nb = pos != null ? beats.find(b => b > pos + 0.03) : null;
-      if (nb != null) when = ctx.currentTime + (nb - pos) / (this.player.rate || 1);
+    if (this.pending.has(sm.id)) return; // still loading (double click)
+    this.pending.add(sm.id);
+    let buf;
+    try {
+      buf = await this.load(sm);
+    } finally {
+      this.pending.delete(sm.id);
     }
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = !!sm.loop;
+    const P = this.player,
+      ctx = P.ctx,
+      now = ctx.currentTime;
+    const info = this._info(sm, buf);
+    const sync = !!opts.onBeat && P.playing;
+    // follow the track's tempo when it is close
+    let pr = 1;
+    if (sync && info.bpm) {
+      const tb = this._trackBpm();
+      if (tb) {
+        const k = tb / info.bpm;
+        if (k > 0.9 && k < 1.11) pr = k;
+      }
+    }
+    const trackBar = sync ? this._trackBarCtx() : null;
+    const barScale = info.barLen ? info.barLen / pr : trackBar;
+    const useBars = !barScale || (info.body - info.d0) / pr >= 0.75 * barScale;
     const g = ctx.createGain();
     g.gain.value = (sm.volume != null ? sm.volume : 1) * this.volume;
-    src.connect(g);
     g.connect(ctx.destination);
-    src.start(when);
     const v = {
-      src,
-      g
+      sm,
+      buf,
+      info,
+      pr,
+      g,
+      sync,
+      useBars,
+      srcs: [],
+      timer: null,
+      nextAt: null
     };
+    // first pass: the sample's first bar line (d0) on the next track bar line
+    let at = now + 0.03;
+    if (sync) {
+      const look = (barScale || 2.5) * 1.2 + 0.1;
+      const grid = this._grid(now + 0.05, now + look, useBars);
+      if (grid.length) at = grid[0];
+    }
+    let startT = at - info.d0 / pr,
+      offset = 0;
+    if (startT < now + 0.02) {
+      offset = (now + 0.02 - startT) * pr;
+      startT = now + 0.02;
+    }
+    this._play(v, startT, offset, !sm.loop);
+    if (sm.loop) {
+      v.nextAt = at + (info.body - info.d0) / pr;
+      v.timer = setInterval(() => this._tickLoop(v), 50);
+    }
     this.voices[sm.id] = v;
+    this.onState();
+  }
+  _play(v, when, offset, once) {
+    const ctx = this.player.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = v.buf;
+    src.playbackRate.value = v.pr;
+    const eg = ctx.createGain();
+    eg.gain.value = 1;
+    src.connect(eg);
+    eg.connect(v.g);
+    src.start(when, Math.max(0, offset));
+    const rec = {
+      src,
+      eg,
+      when
+    };
+    v.srcs.push(rec);
     src.onended = () => {
-      if (this.voices[sm.id] === v) {
-        delete this.voices[sm.id];
+      v.srcs = v.srcs.filter(r => r !== rec);
+      if (once && this.voices[v.sm.id] === v && !v.srcs.length) {
+        delete this.voices[v.sm.id];
         this.onState();
       }
     };
-    this.onState();
+    return rec;
+  }
+  // loop: schedule the next pass shortly before it is due, snapped to the
+  // track's bar line near the expected time (keeps it locked to the track)
+  _tickLoop(v) {
+    if (this.voices[v.sm.id] !== v) {
+      clearInterval(v.timer);
+      return;
+    }
+    const ctx = this.player.ctx,
+      now = ctx.currentTime;
+    if (v.nextAt - now > 0.3) return;
+    let at = v.nextAt;
+    if (v.sync && this.player.playing) {
+      const unit = (v.useBars ? v.info.barLen || 2 : 0.5) / v.pr;
+      const grid = this._grid(at - unit * 0.2, at + unit * 0.2, v.useBars);
+      if (grid.length) at = grid.reduce((a, b) => Math.abs(b - v.nextAt) < Math.abs(a - v.nextAt) ? b : a);
+      // a tempo change on the track: follow it from the next pass on
+      if (v.info.bpm) {
+        const tb = this._trackBpm();
+        if (tb) {
+          const k = tb / v.info.bpm;
+          if (k > 0.9 && k < 1.11) v.pr = k;
+        }
+      }
+    }
+    if (at < now + 0.01) at = now + 0.01;
+    // the previous pass ends where this one starts (its reverb tail rings on)
+    const tailFade = (v.sm.reverb || 0) > 0 ? 0.6 : 0.012;
+    for (const r of v.srcs) {
+      try {
+        r.eg.gain.cancelScheduledValues(at);
+        r.eg.gain.setValueAtTime(1, at);
+        r.eg.gain.linearRampToValueAtTime(0, at + tailFade);
+        r.src.stop(at + tailFade + 0.02);
+      } catch (e) {}
+    }
+    this._play(v, at, v.info.d0, false);
+    v.nextAt = at + (v.info.body - v.info.d0) / v.pr;
   }
   stop(id, fade = 0.08) {
     const v = this.voices[id];
     if (!v) return;
     delete this.voices[id];
+    clearInterval(v.timer);
     const now = this.player.ctx.currentTime;
     try {
       v.g.gain.cancelScheduledValues(now);
       v.g.gain.setValueAtTime(v.g.gain.value, now);
       v.g.gain.linearRampToValueAtTime(0, now + fade);
-      v.src.stop(now + fade + 0.02);
+      for (const r of v.srcs) {
+        try {
+          r.src.stop(now + fade + 0.02);
+        } catch (e) {}
+      }
     } catch (e) {}
     this.onState();
   }
@@ -3288,7 +3452,7 @@ function App() {
     sampler.onState = () => force(x => x + 1);
   }, []);
   const [samples, setSamples] = useState([]);
-  const [sampleOnBeat, setSampleOnBeat] = useState(() => localStorage.getItem('musloop_sample_beat') === '1');
+  const [sampleOnBeat, setSampleOnBeat] = useState(() => localStorage.getItem('musloop_sample_beat') !== '0');
   useEffect(() => {
     localStorage.setItem('musloop_sample_beat', sampleOnBeat ? '1' : '0');
   }, [sampleOnBeat]);
@@ -3353,6 +3517,11 @@ function App() {
         wav,
         duration: d
       } = await renderSample(player, seg.start, seg.end);
+      const rr = player.rate || 1;
+      const inPart = (player.downbeats || []).filter(x => x >= seg.start - 0.02 && x < seg.end - 0.02);
+      const bts = (player.beats || []).filter(x => x >= seg.start - 0.02 && x <= seg.end + 0.02);
+      const bd = bts.slice(1).map((x, k) => x - bts[k]).sort((a, b) => a - b);
+      const per = bd.length ? bd[Math.floor(bd.length / 2)] : 0;
       const meta = {
         name: name || seg.label,
         source_track: trackId,
@@ -3360,10 +3529,13 @@ function App() {
         from: seg.start,
         to: seg.end,
         duration: d,
-        rate: player.rate || 1,
+        rate: rr,
         reverb: player.reverb || 0,
         layers: player.stems ? player.layers : null,
-        loop: seg.loop !== false
+        loop: seg.loop !== false,
+        body: (seg.end - seg.start) / rr,
+        downbeats: inPart.map(x => Math.max(0, (x - seg.start) / rr)),
+        bpm: per > 0 ? 60 / per * rr : null
       };
       const fd = new FormData();
       fd.append('file', wav, 'sample.wav');

@@ -790,7 +790,8 @@ def _sample_files() -> dict[str, tuple[str, dict]]:
 
 def _sample_public(m: dict) -> dict:
     return {k: m.get(k) for k in ("id", "name", "source_track", "source_name", "from", "to", "duration",
-                                  "rate", "reverb", "layers", "loop", "volume", "hotkey", "created_at")}
+                                  "rate", "reverb", "layers", "loop", "volume", "hotkey", "created_at",
+                                  "body", "bpm", "downbeats")}
 
 
 def _clean_sample_patch(body: dict) -> dict:
@@ -846,12 +847,19 @@ async def save_sample(file: UploadFile = File(...), meta: str = Query("{}")):
     for k in ("source_track", "source_name"):
         if isinstance(info.get(k), str):
             m[k] = info[k][:200]
-    for k in ("from", "to", "duration", "rate", "reverb"):
+    for k in ("from", "to", "duration", "rate", "reverb", "body", "bpm"):
         try:
             if info.get(k) is not None:
-                m[k] = round(float(info[k]), 3)
+                m[k] = round(float(info[k]), 4)
         except (TypeError, ValueError):
             pass
+    # the sample's own bar lines (seconds from its start): beat sync on playback
+    try:
+        dbs = [round(float(x), 4) for x in (info.get("downbeats") or [])][:4000]
+        if dbs:
+            m["downbeats"] = dbs
+    except (TypeError, ValueError):
+        pass
     if isinstance(info.get("layers"), dict):
         m["layers"] = {k: v for k, v in info["layers"].items() if k in ("drums", "bass", "other", "vocals")}
     m.update(_clean_sample_patch({k: info[k] for k in ("hotkey",) if k in info}))
@@ -1372,14 +1380,20 @@ def _js_runtime_args() -> list[str]:
     JS runtime for it: the deno binary installed with musloop (requirements),
     passed by path so it works even when the venv is not on PATH (run.bat,
     Docker, IDE)."""
+    out: list[str] = []
     try:
         import deno  # pip package with the official Deno binary
         path = deno.find_deno_bin()
         if path and os.path.exists(path):
-            return ["--js-runtimes", f"deno:{path}"]
+            out = ["--js-runtimes", f"deno:{path}"]
     except Exception:  # noqa: BLE001 - not installed: yt-dlp looks in PATH itself
         pass
-    return []
+    # YouTube answers 403 to media requests without a "proof of origin" token:
+    # the bgutil generator installed by setup (tools/setup_potoken.py)
+    server = os.path.join(BASE_DIR, ".potoken", "server")
+    if os.path.isdir(os.path.join(server, "node_modules")):
+        out += ["--extractor-args", f"youtubepot-bgutilscript:server_home={server}"]
+    return out
 
 
 @app.post("/api/import_url")

@@ -33,14 +33,16 @@ echo [2/2] Installing dependencies ...
 ".venv\Scripts\python.exe" -m pip install --quiet --upgrade pip
 ".venv\Scripts\python.exe" -m pip install --quiet -r requirements.txt
 rem YouTube breaks old yt-dlp versions: always take the newest
-".venv\Scripts\python.exe" -m pip install --quiet --upgrade "yt-dlp[default]"
+".venv\Scripts\python.exe" -m pip install --quiet --upgrade "yt-dlp[default]" bgutil-ytdlp-pot-provider
+rem YouTube download token generator (needs Deno, ~1 min the first time)
+".venv\Scripts\python.exe" tools\setup_potoken.py
 if errorlevel 1 (
   echo ERROR: dependency installation failed. See messages above.
   pause
   exit /b 1
 )
 
-".venv\Scripts\python.exe" -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, yt_dlp_ejs, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready (ffmpeg bundled:', imageio_ffmpeg.get_ffmpeg_exe(), ')')"
+".venv\Scripts\python.exe" -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, yt_dlp_ejs, yt_dlp_plugins, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready (ffmpeg bundled:', imageio_ffmpeg.get_ffmpeg_exe(), ')')"
 if errorlevel 1 (
   echo ERROR: verification failed.
   pause

@@ -9,6 +9,8 @@ numpy
 # yt-dlp[default] brings yt-dlp-ejs (scripts that solve YouTube's JavaScript
 # challenge); deno is the JavaScript runtime that runs them (official binaries)
 yt-dlp[default]
+# YouTube "proof of origin" token for yt-dlp (generator: tools/setup_potoken.py)
+bgutil-ytdlp-pot-provider
 deno; (sys_platform == "darwin") or (sys_platform == "linux" and (platform_machine == "x86_64" or platform_machine == "aarch64")) or (sys_platform == "win32" and platform_machine == "AMD64")
 imageio-ffmpeg
 mutagen
