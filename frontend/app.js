@@ -12,21 +12,24 @@ const THEMES = [{
   id: 'tavern',
   icon: '⚔'
 }, {
-  id: 'forest',
+  id: 'studio',
+  icon: '◧'
+}, {
+  id: 'herbarium',
+  icon: '❦'
+}, {
+  id: 'garden',
   icon: '🌿'
 }, {
-  id: 'dawn',
-  icon: '☀'
-}, {
-  id: 'ocean',
-  icon: '〰'
+  id: 'poster',
+  icon: '▦'
 }];
 const SEG_COLORS_DARK = ['#6a8dff', '#34d399', '#ffb84f', '#ff5b8a', '#a06bff', '#4fd6ff', '#c9e04f', '#ff8a4f', '#5bffb0', '#fb6a6a', '#8a9bff', '#ffd75b'];
 // the same hues, darker: readable on the light theme
 const SEG_COLORS_LIGHT = ['#3550c8', '#0f7d57', '#a8650a', '#c2185b', '#6a35c9', '#0b7fa3', '#6f7d0f', '#b84a14', '#0d8a5f', '#b8323a', '#4a55c4', '#8f6a00'];
 // mutated in place on a theme change so every `SEG_COLORS[...]` follows it
 const SEG_COLORS = SEG_COLORS_DARK.slice();
-const LIGHT_THEMES = new Set(['dawn']);
+const LIGHT_THEMES = new Set(['herbarium', 'poster']);
 function applySegPalette(theme) {
   const src = LIGHT_THEMES.has(theme) ? SEG_COLORS_LIGHT : SEG_COLORS_DARK;
   for (let i = 0; i < src.length; i++) SEG_COLORS[i] = src[i];
@@ -146,9 +149,10 @@ const STR = {
     volume_tip: 'Громкость (клик по иконке — выкл/вкл)',
     theme_mono: 'Тема: минимал',
     theme_tavern: 'Тема: таверна (D&D)',
-    theme_forest: 'Тема: лес',
-    theme_dawn: 'Тема: рассвет (светлая)',
-    theme_ocean: 'Тема: океан',
+    theme_studio: 'Тема: студия (как DAW, плеер внизу)',
+    theme_herbarium: 'Тема: гербарий (светлая, ботаническая)',
+    theme_garden: 'Тема: ночной сад (стекло, плеер слева)',
+    theme_poster: 'Тема: афиша (плеер сверху)',
     beep_tip: 'Тест звука: короткий бип напрямую в аудиовыход',
     files_menu: '⤓⤒ Файлы',
     drop_compact_hint: 'перетащите аудио или *.musloop.json — заменить / применить',
@@ -450,9 +454,10 @@ const STR = {
     volume_tip: 'Volume (click icon to mute/unmute)',
     theme_mono: 'Theme: minimal',
     theme_tavern: 'Theme: tavern (D&D)',
-    theme_forest: 'Theme: forest',
-    theme_dawn: 'Theme: dawn (light)',
-    theme_ocean: 'Theme: ocean',
+    theme_studio: 'Theme: studio (DAW-like, player at the bottom)',
+    theme_herbarium: 'Theme: herbarium (light, botanical)',
+    theme_garden: 'Theme: night garden (glass, player on the left)',
+    theme_poster: 'Theme: poster (player on top)',
     beep_tip: 'Sound test: a short beep straight to the audio output',
     files_menu: '⤓⤒ Files',
     drop_compact_hint: 'drop audio or *.musloop.json here to replace / apply',
@@ -755,9 +760,10 @@ const STR = {
     volume_tip: '音量（点击图标静音/取消静音）',
     theme_mono: '主题：极简',
     theme_tavern: '主题：酒馆（D&D）',
-    theme_forest: '主题：森林',
-    theme_dawn: '主题：黎明（浅色）',
-    theme_ocean: '主题：海洋',
+    theme_studio: '主题：工作室（类似 DAW，播放器在底部）',
+    theme_herbarium: '主题：植物标本（浅色）',
+    theme_garden: '主题：夜晚花园（玻璃，播放器在左侧）',
+    theme_poster: '主题：海报（播放器在顶部）',
     beep_tip: '声音测试：直接向音频输出发送短促提示音',
     files_menu: '⤓⤒ 文件',
     drop_compact_hint: '拖入音频或 *.musloop.json — 替换 / 应用',
@@ -5164,7 +5170,9 @@ function App() {
       document.body.style.overflow = '';
     };
   }, [liveMode]);
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("header", null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'app-shell' + (analysis ? ' has-track' : '')
+  }, /*#__PURE__*/React.createElement("header", null, /*#__PURE__*/React.createElement("div", {
     className: "logo"
   }, /*#__PURE__*/React.createElement("button", {
     className: 'drawer-btn' + (drawerOpen ? ' on' : ''),
@@ -5200,7 +5208,7 @@ function App() {
     className: lang === 'zh' ? 'on' : '',
     onClick: () => setLanguage('zh')
   }, "\u4E2D\u6587")))), /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+    className: "panel upload-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
   }, t.upload_title), !analysis ? /*#__PURE__*/React.createElement("div", {
@@ -5282,7 +5290,7 @@ function App() {
     },
     onClick: () => setError(null)
   }, "\u2715"), t.err_prefix, " ", error)), analysis && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+    className: "panel parts-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
   }, t.structure_title), /*#__PURE__*/React.createElement("div", {
@@ -5706,7 +5714,7 @@ function App() {
     onPlay: playChain,
     onStop: () => player.stopChain()
   })), analysis && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+    className: "panel player-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row between"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6135,7 +6143,7 @@ function App() {
       }
     }, "\u2715")), sm.hotkey && /*#__PURE__*/React.createElement("kbd", null, "Alt+", sm.hotkey.toUpperCase()));
   }))), (analysis || otherSceneGroups.length > 0) && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+    className: "panel scenes-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row between"
   }, /*#__PURE__*/React.createElement("div", {
