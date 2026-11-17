@@ -154,7 +154,7 @@
 
   /* ============ THEME: garden — night garden: dark glass, green light ============ */
   [data-theme="garden"] {
-    --bg: #060d0a; --panel: rgba(18,32,26,.66); --panel2: rgba(30,52,42,.62);
+    --bg: #060d0a; --panel: rgba(16,30,24,.86); --panel2: rgba(30,52,42,.72);
     --text: #e8f5ee; --muted: #8fae9f;
     --accent: #b6f36b; --accent2: #5ef0c0; --danger: #ff8a7a;
     --border: rgba(160,255,200,.14); --border-soft: rgba(160,255,200,.08);
@@ -173,13 +173,16 @@
       radial-gradient(520px 520px at 45% 118%, rgba(106,168,58,.3), transparent 65%),
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cg fill='none' stroke='%23b6f36b' stroke-width='1.1' stroke-opacity='.10'%3E%3Cpath d='M40 120C60 70 120 60 150 90 120 130 70 140 40 120z'/%3E%3Cpath d='M40 120L150 90'/%3E%3Cpath d='M220 60c10 40 50 60 70 50-6-38-46-62-70-50z'/%3E%3Cpath d='M190 250c-40-20-46-70-22-96 36 22 46 66 22 96z'/%3E%3C/g%3E%3C/svg%3E");
     --panel-shadow: 0 10px 40px rgba(0,0,0,.35);
-    --wave-bg: rgba(8,20,15,.75); --wave-line: rgba(232,245,238,.75); --wave-playhead: #ffffff;
+    --wave-bg: #0b1812; --wave-line: rgba(232,245,238,.75); --wave-playhead: #ffffff;
     --wave-bound: rgba(182,243,107,.55); --wave-bar: rgba(232,245,238,.06); --wave-downbeat: rgba(232,245,238,.16);
     --wave-phrase: rgba(182,243,107,.45); --wave-barnum: #b6f36b; --tip-bg: #12241c;
   }
-  [data-theme="garden"] body { background-color: var(--bg); }
-  [data-theme="garden"] .panel, [data-theme="garden"] .drawer, [data-theme="garden"] .live-now, [data-theme="garden"] .live-next {
-    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  /* the glow + leaves sit on their own fixed layer: no background-attachment:fixed
+     repaint on scroll, no backdrop blur recomputed every frame (that flickered) */
+  [data-theme="garden"] body { background-color: var(--bg); background-image: none; }
+  [data-theme="garden"] body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image: var(--bg-image); transform: translateZ(0); }
+  [data-theme="garden"] .drawer, [data-theme="garden"] .live { background-color: #0a1611; }
   [data-theme="garden"] h1 { font-weight: 800; letter-spacing: -.8px; font-size: 24px; }
   [data-theme="garden"] h1::before { content: ''; display: inline-block; width: 18px; height: 18px; margin-right: 8px; vertical-align: -2px;
     border-radius: 60% 0 60% 0; background: linear-gradient(135deg, #b6f36b, #2fbf71); }
