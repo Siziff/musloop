@@ -26,7 +26,11 @@ COPY requirements.txt /tmp/requirements.txt
 RUN /venv/bin/pip install --upgrade pip \
  && /venv/bin/pip install -r /tmp/requirements.txt \
  && ln -s "$(/venv/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /venv/bin/ffmpeg \
- && /venv/bin/ffmpeg -hide_banner -version | head -1 \
+ && /venv/bin/ffmpeg -hide_banner -version | head -1
+# YouTube "proof of origin" token generator (bgutil) -> /app/.potoken; without
+# it YouTube answers 403 to downloads. Needs the network only at build time.
+COPY tools/setup_potoken.py /build/tools/setup_potoken.py
+RUN /venv/bin/python /build/tools/setup_potoken.py \
  && /venv/bin/pip uninstall -y pip \
  && find /venv -type d \( -name tests -o -name __pycache__ \) -prune -exec rm -rf {} +
 
@@ -37,6 +41,7 @@ RUN useradd --create-home --uid 1000 musloop \
 
 COPY --from=build /venv /venv
 WORKDIR /app
+COPY --from=build --chown=musloop:musloop /build/.potoken ./.potoken
 COPY --chown=musloop:musloop backend ./backend
 COPY --chown=musloop:musloop frontend ./frontend
 COPY --chown=musloop:musloop LICENSE README.md ./

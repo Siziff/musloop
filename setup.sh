@@ -22,10 +22,14 @@ fi
 echo "[2/2] Installing dependencies ..."
 ./.venv/bin/python -m pip install --quiet --upgrade pip
 ./.venv/bin/python -m pip install --quiet -r requirements.txt
+# YouTube breaks old yt-dlp versions: always take the newest
+./.venv/bin/python -m pip install --quiet --upgrade "yt-dlp[default]" bgutil-ytdlp-pot-provider
+# YouTube download token generator (needs Deno, ~1 min the first time)
+./.venv/bin/python tools/setup_potoken.py || echo "NOTE: YouTube import may fail with 403 until this works"
 # dev only: rebuild frontend/app.js after editing index.html (optional)
 [ "${MUSLOOP_DEV:-0}" = "1" ] && ./.venv/bin/python -m pip install --quiet -r requirements-dev.txt
 
-./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready, librosa', librosa.__version__)"
+./.venv/bin/python -c "import fastapi, uvicorn, librosa, sklearn, soundfile, multipart, mutagen, yt_dlp, yt_dlp_ejs, yt_dlp_plugins, imageio_ffmpeg, websockets, segno; print('OK: core dependencies ready, librosa', librosa.__version__)"
 
 echo
 echo "Done! Start the app:   ./run.sh"

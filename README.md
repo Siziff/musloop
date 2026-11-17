@@ -55,6 +55,39 @@ models have been downloaded. This is a personal passion project, shared freely.
   finds musloop on your Wi-Fi by itself, remembers your computers and keeps the screen on.
   See [Phone remote](#phone-remote).
 
+**Chains and samples**
+- **Part chains** — click **＋ Build a chain**, then parts in the order you want (2 → 5 → 3): each plays
+  one pass, then the next, and after the last one the first again. The chain enters with the
+  transition mode you picked; Backspace or a click on any part leaves it.
+- **Samples** — 💾 on a part saves it as a short sound, the way it sounds now (the layers you kept,
+  speed, reverb). Samples play over any track from the 🎵 panel or in Live, once or in a loop, with
+  **Alt+key** hotkeys. They are WAV files in `library/.samples/`.
+- **Samples stay in time** — with **On the beat** (on by default) a sample's first bar lands on the
+  next bar of the playing track, a looped sample lines up with the track's bars on every pass, and
+  its speed follows the track when the tempos are within ±10%. A reverb tail rings over the next
+  pass instead of delaying it. Samples saved before this version don't know their bars: save them
+  again with 💾 to get the sync.
+
+**Library on disk**
+- Every track is a folder in `library/` named like the track: the audio, `track.json` with the
+  parts and scenes, `cache/`, `stems/`. Renaming a track renames its folder; a folder or an audio
+  file dropped into `library/` shows up as a new track. See [Where tracks are stored](#where-tracks-are-stored).
+- Tracks from older versions (`uploads/`) are moved in on the first start.
+
+**Styles**
+- Six looks in the header: **minimal**, **tavern** (D&D), **studio** (DAW-like, the transport is
+  docked at the bottom), **herbarium** (light, botanical), **night garden** (dark glass, the
+  player is a column on the left) and **poster** (bold type, the player on top). Studio, night
+  garden and poster also rearrange the screen on wide displays.
+
+**YouTube import works out of the box**
+- Setup installs what yt-dlp now needs for YouTube: the challenge solver scripts, the Deno runtime
+  and a "proof of origin" token generator ([bgutil](https://github.com/Brainicism/bgutil-ytdlp-pot-provider),
+  in `.potoken/`). Without the token YouTube answers `HTTP Error 403: Forbidden`.
+- The bar grid after SongFormer is fixed: holes where the beat tracker lost the beat are filled,
+  and when it lost the beat on most of the track (quiet or orchestral music) the beats come from
+  the audio. Saved markups are repaired when the track opens.
+
 **Run a whole session from one screen**
 - **Live mode** (`L`) — a full-screen desk for the table: what's playing now, what comes next
   and in how many seconds, big pads for parts and scenes, **Next**, **Cancel** and **Fade out** (`F`).
@@ -98,7 +131,7 @@ models have been downloaded. This is a personal passion project, shared freely.
 | At your TTRPG table | While building your game |
 |---|---|
 | Keep an atmospheric section going while players explore or talk. Cue the intense part when **you** decide it's time. | Audition section loops, transitions, and intensity changes before implementing them in your game. |
-| Operate the soundtrack live with Play and Next. A Tavern UI theme is available in the header. | Export WAV loops for your audio workflow. Playback logic and engine integration remain part of your game project. |
+| Operate the soundtrack live with Play and Next. Six UI styles in the header, from minimal to tavern and poster. | Export WAV loops for your audio workflow. Playback logic and engine integration remain part of your game project. |
 
 ## Features
 
@@ -116,6 +149,8 @@ models have been downloaded. This is a personal passion project, shared freely.
 | **Live mode** | full-screen desk for the session (key `L`): big current/next display, scene pads, ETA of the transition, fade-out, switch tracks without leaving it (◀ ▶, `[` `]`, `T` for the list) — editing is locked |
 | **Projects (set lists)** | group tracks and scenes for a whole session or level (*Arrival → Inside → Finale*), with notes; open any item in one click |
 | **Meter** | time signature detected automatically (3 vs 4 beats; neural engines read it from their downbeats) and shown next to BPM; override it (2/4 … 7/4, 6/8) and shift the downbeat if the bar grid is off — the original meter stays the recommended default |
+| **Part chains** | several parts in a row, round and round (2 → 5 → 3 → 2 …), one pass each; enter with the transition mode, leave with Backspace |
+| **Samples** | save a part as a WAV the way it sounds now (layers, speed, reverb), fire it over any track, locked to the track's bars and tempo |
 | **Loop export** | ZIP of WAV sections plus `manifest.json` (loop points, phrase transition points, tails, stingers, scenes) — see the [Godot example](examples/godot) |
 
 **Results depend on the source track.** Automatic boundaries are a starting point,
@@ -132,7 +167,7 @@ Linux / macOS:
 
 ```bash
 git clone https://github.com/Siziff/musloop.git && cd musloop
-./setup.sh   # creates .venv, installs everything (incl. a bundled ffmpeg)
+./setup.sh   # creates .venv, installs everything (incl. a bundled ffmpeg); ~2 min the first time
 ./run.sh     # → http://localhost:8801
 ```
 
@@ -146,6 +181,16 @@ run.bat      # → http://localhost:8801
 ```
 
 ffmpeg is downloaded automatically with the dependencies — no manual install needed.
+Setup also downloads the YouTube token generator into `.potoken/` (about 200 MB, needs internet
+once).
+
+**Updating** an existing copy:
+
+```bash
+git pull
+./setup.sh   # Windows: setup.bat — new libraries, newest yt-dlp, the YouTube token generator
+./run.sh     # then hard-refresh the page (Ctrl+F5 / Cmd+Shift+R)
+```
 
 ### Docker
 
@@ -208,6 +253,30 @@ All variants use the same `musloop-data` volume, so your tracks carry over betwe
 6. Adjust section boundaries if needed; use **Ctrl+Z** to undo an edit.
 7. For game audio prototyping, choose **Files → Loops (zip)** to export WAV loops
    with `manifest.json`.
+
+### Where tracks are stored
+
+Every track gets its own folder in `library/` (next to `run.sh`), named like the track in the app:
+
+```text
+library/
+  Village Consort/
+    Village Consort.mp3   the audio you added
+    track.json            parts, scenes, bar grid, AI results
+    cache/                analysis files, re-created when missing
+    stems/                layers, if you made them
+  .samples/               samples: <Name>.wav + <Name>.json
+  .musloop/               projects, music folders, temporary files
+```
+
+- Renaming a track in the app renames its folder and audio file.
+- To move a track to another computer, copy its folder into that computer's `library/`
+  (`cache/` can be left out). An audio file or a folder with an audio file dropped into
+  `library/` shows up as a new track.
+- Tracks from older versions (`uploads/`) are moved into `library/` on the first start. The old
+  metadata is kept in `uploads/.migrated/`; once everything opens fine, `uploads/` can be deleted.
+- Another place: `MUSLOOP_LIBRARY=/path/to/library` in `.env`. In Docker the library is
+  `/data/library` in the `musloop-data` volume.
 
 ## Running a session
 
@@ -409,7 +478,8 @@ plus classic MIR: Ellis 2007 (beat tracking), Foote 2000 (novelty segmentation).
 | `POST /api/stems/{id}` · `GET /api/stems/{id}/{stem}` | Demucs 4-stem split |
 | `POST /api/export/{id}` | zip of full-quality loop WAVs + `manifest.json` (body: `{segments, scenes, tempo, downbeats, tails}`) |
 | `GET/POST /api/markup/{id}` | segment markup + scenes persistence |
-| `GET /api/tracks` · `POST /api/favorite/{id}` | history & library |
+| `GET /api/tracks` · `POST /api/favorite/{id}` · `POST /api/tracks/{id}/name` | history & library, rename (renames the track folder) |
+| `GET/POST /api/samples` · `GET /api/samples/{id}/audio` · `POST/DELETE /api/samples/{id}` | samples: list, save a rendered WAV (+ its bars and tempo), play, rename / loop / hotkey, delete |
 | `GET/POST /api/projects` · `GET/PUT/DELETE /api/projects/{pid}` | projects (set lists): groups of track / scene references |
 
 ## Troubleshooting
@@ -422,5 +492,16 @@ plus classic MIR: Ellis 2007 (beat tracking), Foote 2000 (novelty segmentation).
 6. Import from YouTube fails (`SSL: UNEXPECTED_EOF`, `Failed to resolve`, `No route to host`) →
    the connection dropped or the network blocks YouTube. Try again; check the VPN. If YouTube only
    works through a proxy, or IPv6 is broken, pass options to yt-dlp in `.env`:
-   `MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"`. Installing [Deno](https://deno.com)
-   (`brew install deno`) helps yt-dlp with newer YouTube pages.
+   `MUSLOOP_YTDLP_ARGS="--proxy http://127.0.0.1:7890 -4"`.
+7. Import from YouTube fails with `n challenge solving failed`, `JavaScript runtime`, `The page
+   needs to be reloaded` or `HTTP Error 403: Forbidden` → YouTube changed its download check.
+   musloop installs what yt-dlp needs for it (the `yt-dlp-ejs` scripts, the Deno runtime and the
+   bgutil token generator in `.potoken/`); run `./setup.sh` (Windows: `setup.bat`) to update them,
+   then restart musloop. To install only the token generator: `.venv/bin/python tools/setup_potoken.py`.
+8. `Sign in to confirm you're not a bot` or an age-restricted video → yt-dlp needs the cookies of a
+   browser where you are signed in to YouTube. Add to `.env` and restart:
+   `MUSLOOP_YTDLP_ARGS="--cookies-from-browser chrome"` (or `firefox`, `safari`, `edge`, `brave`).
+   Chrome on macOS asks for Keychain access the first time; Safari needs Full Disk Access for the
+   terminal. In Docker there is no browser: export a `cookies.txt`
+   ([how](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies)), put it in the
+   data volume and use `--cookies /data/cookies.txt`.

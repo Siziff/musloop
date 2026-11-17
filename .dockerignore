@@ -15,6 +15,7 @@ assets
 tools
 !tools/songformer_analyze.py
 !tools/demix.py
+!tools/setup_potoken.py
 **/__pycache__
 **/*.pyc
 *.log
@@ -36,3 +37,5 @@ docker-compose.yml
 .dockerignore
 frontend/remote.src.js
 mobile
+library
+.potoken

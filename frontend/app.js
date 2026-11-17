@@ -5,7 +5,38 @@ const {
   useEffect,
   useCallback
 } = React;
-const SEG_COLORS = ['#6a8dff', '#34d399', '#ffb84f', '#ff5b8a', '#a06bff', '#4fd6ff', '#c9e04f', '#ff8a4f', '#5bffb0', '#fb6a6a', '#8a9bff', '#ffd75b'];
+const THEMES = [{
+  id: 'mono',
+  icon: '▪'
+}, {
+  id: 'tavern',
+  icon: '⚔'
+}, {
+  id: 'studio',
+  icon: '◧'
+}, {
+  id: 'herbarium',
+  icon: '❦'
+}, {
+  id: 'garden',
+  icon: '🌿'
+}, {
+  id: 'poster',
+  icon: '▦'
+}];
+const SEG_COLORS_DARK = ['#6a8dff', '#34d399', '#ffb84f', '#ff5b8a', '#a06bff', '#4fd6ff', '#c9e04f', '#ff8a4f', '#5bffb0', '#fb6a6a', '#8a9bff', '#ffd75b'];
+// the same hues, darker: readable on the light theme
+const SEG_COLORS_LIGHT = ['#3550c8', '#0f7d57', '#a8650a', '#c2185b', '#6a35c9', '#0b7fa3', '#6f7d0f', '#b84a14', '#0d8a5f', '#b8323a', '#4a55c4', '#8f6a00'];
+// mutated in place on a theme change so every `SEG_COLORS[...]` follows it
+const SEG_COLORS = SEG_COLORS_DARK.slice();
+const LIGHT_THEMES = new Set(['herbarium', 'poster']);
+function applySegPalette(theme) {
+  const src = LIGHT_THEMES.has(theme) ? SEG_COLORS_LIGHT : SEG_COLORS_DARK;
+  for (let i = 0; i < src.length; i++) SEG_COLORS[i] = src[i];
+}
+try {
+  applySegPalette(localStorage.getItem('musloop_theme'));
+} catch (e) {}
 
 // =============================== i18n ======================================
 const STR = {
@@ -118,6 +149,10 @@ const STR = {
     volume_tip: 'Громкость (клик по иконке — выкл/вкл)',
     theme_mono: 'Тема: минимал',
     theme_tavern: 'Тема: таверна (D&D)',
+    theme_studio: 'Тема: студия (как DAW, плеер внизу)',
+    theme_herbarium: 'Тема: гербарий (светлая, ботаническая)',
+    theme_garden: 'Тема: ночной сад (стекло, плеер слева)',
+    theme_poster: 'Тема: афиша (плеер сверху)',
     beep_tip: 'Тест звука: короткий бип напрямую в аудиовыход',
     files_menu: '⤓⤒ Файлы',
     drop_compact_hint: 'перетащите аудио или *.musloop.json — заменить / применить',
@@ -162,6 +197,38 @@ const STR = {
     chip_select_tip: 'Выбрать часть (Play зациклит её)',
     chip_cue_tip: 'Поставить переход в эту часть в очередь · клик по играющей части — отменить переход',
     queued_badge: 'в очереди',
+    samples_title: 'Сэмплы',
+    samples_tip: 'Короткие звуки из треков, звучат поверх любого трека. Клик — играть, ещё клик — стоп',
+    samples_empty: 'Пока нет сэмплов. Выберите часть и нажмите «💾 В сэмплы» — звук сохранится как слышен сейчас (слои, скорость, реверб).',
+    sample_save: '💾 В сэмплы',
+    sample_save_tip: 'Сохранить часть как сэмпл — так, как она звучит сейчас: выбранные слои, скорость, реверб',
+    sample_name: 'Название сэмпла',
+    sample_saving: 'Сохраняю сэмпл…',
+    sample_saved: 'Сэмпл сохранён:',
+    sample_loop: '⟳ по кругу',
+    sample_once: '▸ один раз',
+    sample_loop_tip: 'Играть один раз или по кругу (до повторного нажатия)',
+    sample_on_beat: 'На долю',
+    sample_on_beat_tip: 'Начинать на ближайшей доле играющего трека',
+    sample_vol: 'Громкость сэмплов',
+    sample_del_tip: 'Удалить сэмпл',
+    sample_rename_tip: 'Переименовать',
+    sample_key_tip: 'Клавиша (буква или цифра) — запуск с клавиатуры, Alt+клавиша',
+    sample_stop_all: '■ Стоп все',
+    sample_from: 'из',
+    sample_del_confirm: 'Удалить сэмпл «{name}»?',
+    chain_title: 'Цепочка',
+    chain_tip: 'Несколько частей подряд по кругу: каждая играет один раз, потом следующая, после последней — снова первая',
+    chain_build: '＋ Собрать цепочку',
+    chain_build_hint: 'Кликайте части по порядку (одну можно несколько раз)',
+    chain_play: '▶ Играть цепочку',
+    chain_stop: '■ Выйти из цепочки',
+    chain_clear: 'Очистить',
+    chain_done: 'Готово',
+    chain_empty: 'пусто',
+    chain_on: 'цепочка',
+    chain_remove_tip: 'Убрать из цепочки',
+    chain_add_tip: 'Добавить в цепочку',
     cancel_cue: 'Отменить переход',
     cancel_cue_tip: 'Остаться в текущей части (отменить запланированный переход)',
     cue_mode: 'Когда переходить:',
@@ -253,7 +320,7 @@ const STR = {
     scenes_this_track: 'Этот трек',
     scenes_other_track: 'Трек:',
     scene_remote_tip: 'Сцена другого трека: клик загрузит трек и запустит сцену',
-    live_keys: 'Пробел — играть/стоп · → / Enter — дальше · 1–9, 0 — переход в часть 1–10 · Shift+1–9 — сцены · Backspace — отменить переход · F — затухание · [ / ] — соседний трек · T — список треков · L / Esc — выйти из Live',
+    live_keys: 'Пробел — играть/стоп · → / Enter — дальше · 1–9, 0 — переход в часть 1–10 · Shift+1–9 — сцены · Backspace — отменить переход · F — затухание · [ / ] — соседний трек · T — список треков · Alt+клавиша — сэмпл · L / Esc — выйти из Live',
     part_hotkey_tip: 'Клавиша части: нажми во время игры — переход в неё; ещё раз — отмена',
     // --- projects ---
     project_title: 'Проект',
@@ -387,6 +454,10 @@ const STR = {
     volume_tip: 'Volume (click icon to mute/unmute)',
     theme_mono: 'Theme: minimal',
     theme_tavern: 'Theme: tavern (D&D)',
+    theme_studio: 'Theme: studio (DAW-like, player at the bottom)',
+    theme_herbarium: 'Theme: herbarium (light, botanical)',
+    theme_garden: 'Theme: night garden (glass, player on the left)',
+    theme_poster: 'Theme: poster (player on top)',
     beep_tip: 'Sound test: a short beep straight to the audio output',
     files_menu: '⤓⤒ Files',
     drop_compact_hint: 'drop audio or *.musloop.json here to replace / apply',
@@ -431,6 +502,38 @@ const STR = {
     chip_select_tip: 'Select this part (Play will loop it)',
     chip_cue_tip: 'Queue a transition into this part · click the playing part to cancel',
     queued_badge: 'queued',
+    samples_title: 'Samples',
+    samples_tip: 'Short sounds from tracks, played over any track. Click to play, click again to stop',
+    samples_empty: 'No samples yet. Pick a part and press “💾 To samples” — it is saved the way it sounds now (layers, speed, reverb).',
+    sample_save: '💾 To samples',
+    sample_save_tip: 'Save the part as a sample, the way it sounds now: chosen layers, speed, reverb',
+    sample_name: 'Sample name',
+    sample_saving: 'Saving the sample…',
+    sample_saved: 'Sample saved:',
+    sample_loop: '⟳ loop',
+    sample_once: '▸ once',
+    sample_loop_tip: 'Play once, or loop until pressed again',
+    sample_on_beat: 'On the beat',
+    sample_on_beat_tip: 'Start on the next beat of the playing track',
+    sample_vol: 'Samples volume',
+    sample_del_tip: 'Delete the sample',
+    sample_rename_tip: 'Rename',
+    sample_key_tip: 'Key (letter or digit) to fire it from the keyboard with Alt',
+    sample_stop_all: '■ Stop all',
+    sample_from: 'from',
+    sample_del_confirm: 'Delete the sample “{name}”?',
+    chain_title: 'Chain',
+    chain_tip: 'Several parts in a row, round and round: each plays once, then the next, after the last one the first again',
+    chain_build: '＋ Build a chain',
+    chain_build_hint: 'Click parts in order (the same part can be added more than once)',
+    chain_play: '▶ Play the chain',
+    chain_stop: '■ Leave the chain',
+    chain_clear: 'Clear',
+    chain_done: 'Done',
+    chain_empty: 'empty',
+    chain_on: 'chain',
+    chain_remove_tip: 'Remove from the chain',
+    chain_add_tip: 'Add to the chain',
     cancel_cue: 'Cancel transition',
     cancel_cue_tip: 'Stay in the current part (cancel the scheduled transition)',
     cue_mode: 'Move on:',
@@ -522,7 +625,7 @@ const STR = {
     scenes_this_track: 'This track',
     scenes_other_track: 'Track:',
     scene_remote_tip: 'Scene of another track: click loads the track and starts the scene',
-    live_keys: 'Space — play/stop · → / Enter — next · 1–9, 0 — cue part 1–10 · Shift+1–9 — scenes · Backspace — cancel transition · F — fade out · [ / ] — prev/next track · T — track list · L / Esc — leave Live',
+    live_keys: 'Space — play/stop · → / Enter — next · 1–9, 0 — cue part 1–10 · Shift+1–9 — scenes · Backspace — cancel transition · F — fade out · [ / ] — prev/next track · T — track list · Alt+key — sample · L / Esc — leave Live',
     part_hotkey_tip: 'Part hotkey: press while playing to cue this part; press again to cancel',
     // --- projects ---
     project_title: 'Project',
@@ -657,6 +760,10 @@ const STR = {
     volume_tip: '音量（点击图标静音/取消静音）',
     theme_mono: '主题：极简',
     theme_tavern: '主题：酒馆（D&D）',
+    theme_studio: '主题：工作室（类似 DAW，播放器在底部）',
+    theme_herbarium: '主题：植物标本（浅色）',
+    theme_garden: '主题：夜晚花园（玻璃，播放器在左侧）',
+    theme_poster: '主题：海报（播放器在顶部）',
     beep_tip: '声音测试：直接向音频输出发送短促提示音',
     files_menu: '⤓⤒ 文件',
     drop_compact_hint: '拖入音频或 *.musloop.json — 替换 / 应用',
@@ -701,6 +808,38 @@ const STR = {
     chip_select_tip: '选择此段（播放将循环它）',
     chip_cue_tip: '将切换到此段加入队列 · 点击正在播放的段可取消切换',
     queued_badge: '已排队',
+    samples_title: '采样',
+    samples_tip: '从音轨中截取的短音，可叠加在任何音轨上播放。点击播放，再次点击停止',
+    samples_empty: '还没有采样。选择一个段落并点击“💾 存为采样”——按当前听到的效果保存（分轨、速度、混响）。',
+    sample_save: '💾 存为采样',
+    sample_save_tip: '按当前效果把段落保存为采样：所选分轨、速度、混响',
+    sample_name: '采样名称',
+    sample_saving: '正在保存采样…',
+    sample_saved: '采样已保存：',
+    sample_loop: '⟳ 循环',
+    sample_once: '▸ 一次',
+    sample_loop_tip: '播放一次，或循环直到再次点击',
+    sample_on_beat: '对齐节拍',
+    sample_on_beat_tip: '在正在播放音轨的下一拍开始',
+    sample_vol: '采样音量',
+    sample_del_tip: '删除采样',
+    sample_rename_tip: '重命名',
+    sample_key_tip: '按键（字母或数字），用 Alt+按键触发',
+    sample_stop_all: '■ 全部停止',
+    sample_from: '来自',
+    sample_del_confirm: '删除采样“{name}”？',
+    chain_title: '串联',
+    chain_tip: '多个段落依次循环：每段播放一次，然后下一段，最后一段之后回到第一段',
+    chain_build: '＋ 组建串联',
+    chain_build_hint: '按顺序点击段落（同一段可添加多次）',
+    chain_play: '▶ 播放串联',
+    chain_stop: '■ 退出串联',
+    chain_clear: '清空',
+    chain_done: '完成',
+    chain_empty: '空',
+    chain_on: '串联',
+    chain_remove_tip: '从串联中移除',
+    chain_add_tip: '添加到串联',
     cancel_cue: '取消切换',
     cancel_cue_tip: '留在当前段（取消已安排的切换）',
     cue_mode: '切换时机：',
@@ -792,7 +931,7 @@ const STR = {
     scenes_this_track: '当前曲目',
     scenes_other_track: '曲目：',
     scene_remote_tip: '其他曲目的场景：点击将加载该曲目并启动场景',
-    live_keys: '空格 — 播放/停止 · → / Enter — 下一个 · 1–9、0 — 切到第 1–10 段 · Shift+1–9 — 场景 · Backspace — 取消切换 · F — 淡出 · [ / ] — 上/下一首 · T — 音轨列表 · L / Esc — 退出现场模式',
+    live_keys: '空格 — 播放/停止 · → / Enter — 下一个 · 1–9、0 — 切到第 1–10 段 · Shift+1–9 — 场景 · Backspace — 取消切换 · F — 淡出 · [ / ] — 上/下一首 · T — 音轨列表 · Alt+按键 — 采样 · L / Esc — 退出现场模式',
     part_hotkey_tip: '段快捷键：播放时按下排队切换到此段；再按一次取消',
     // --- projects ---
     project_title: '项目',
@@ -833,6 +972,7 @@ function themeColors() {
     phrase: v('--wave-phrase') || 'rgba(216,255,62,.4)',
     barNum: v('--wave-barnum') || '#d8ff3e',
     accent2: v('--accent2') || '#d8ff3e',
+    hatch: v('--wave-hatch') || '#ffffff14',
     danger: v('--danger') || '#ff6b6b'
   };
 }
@@ -921,6 +1061,11 @@ class LoopPlayer {
     // following part). Set by cue(); consumed when the transition is planned
     this.targetIndex = null;
     this.loopEnabled = true;
+    // chain: parts played one pass each, in order, then from the start again
+    // ({parts: [segIndex...]}); chainPlanned = position in parts of the last
+    // planned chunk, -1 while waiting to enter the first part
+    this.chain = null;
+    this.chainPlanned = -1;
     // audition preview (seam / transition) — separate from the main playback
     this.previewing = false;
     this._previewT = null;
@@ -1396,7 +1541,17 @@ class LoopPlayer {
       const curSeg = this.segments[idx];
       // a non-looped part (build-up) plays once and moves on
       const noLoop = curSeg && curSeg.loop === false;
-      if (this.advanceArmed || !this.loopEnabled || noLoop) {
+      const ch = this.chain;
+      if (ch && ch.parts.some(i => i >= this.segments.length)) this.chain = null; // parts were deleted
+      if (this.chain && !this.advanceArmed && this.chainPlanned >= 0) {
+        // chain running: one pass of each part, then the next one, round and round
+        const np = (this.chainPlanned + 1) % this.chain.parts.length;
+        const want = this.chain.parts[np];
+        isRepeat = want === idx;
+        idx = want;
+        this.chainPlanned = np;
+        this.onState();
+      } else if (this.advanceArmed || !this.loopEnabled || noLoop) {
         const want = this.advanceArmed && this.targetIndex != null ? this.targetIndex : idx + 1;
         if (want >= 0 && want < this.segments.length) {
           idx = want;
@@ -1406,6 +1561,7 @@ class LoopPlayer {
           this.onState();
           return;
         }
+        if (this.chain && this.chainPlanned < 0 && want === this.chain.parts[0]) this.chainPlanned = 0;
         this.advanceArmed = false;
         this.targetIndex = null;
         this.onState();
@@ -1491,6 +1647,7 @@ class LoopPlayer {
   cue(target, urgency = 'natural') {
     if (!this.playing) return;
     if (target == null || target < 0 || target >= this.segments.length) return;
+    this.chain = null; // picking a part by hand leaves the chain
     if (urgency === 'now') {
       this._transitionAt(target, this.position(), Math.max(this.crossfade, 0.25));
       this.onState();
@@ -1509,7 +1666,9 @@ class LoopPlayer {
   // Cancel a pending (not yet planned) transition — keep looping the current part
   cancelCue() {
     if (!this.playing) return;
-    const wasArmed = this.advanceArmed;
+    const hadChain = !!this.chain;
+    this.chain = null; // Backspace: stay on the current part
+    const wasArmed = this.advanceArmed || hadChain;
     this.advanceArmed = false;
     this.targetIndex = null;
     // if the lookahead already planned the target chunk, roll back to the
@@ -1525,6 +1684,68 @@ class LoopPlayer {
       }
     }
     if (wasArmed || last) this.onState();
+  }
+  // Play parts one pass each, in this order, then from the first again.
+  // Stopped: starts playing the first part. Playing: enters the first part
+  // like a normal cue (urgency); if it is the part playing now, the chain
+  // continues from it after the current pass.
+  startChain(parts, urgency = 'natural') {
+    parts = (parts || []).filter(i => i >= 0 && i < this.segments.length);
+    if (!parts.length) return;
+    if (!this.playing) {
+      this.play(parts[0]);
+      this.chain = {
+        parts
+      };
+      this.chainPlanned = 0;
+      this.onState();
+      return;
+    }
+    if (parts[0] === this.segIndex && urgency !== 'now') {
+      // already in the first part: drop a planned repeat, continue after this pass
+      this.cancelCue();
+      this.chain = {
+        parts
+      };
+      this.chainPlanned = 0;
+      const last = this.queue[this.queue.length - 1];
+      if (last && last.isLoopRepeat && last.t0 > this.ctx.currentTime + 0.05) {
+        const pos = this.position();
+        if (pos != null) {
+          const lc = this.loopCount;
+          this._softRestartAt(pos);
+          this.loopCount = lc;
+        }
+      }
+      this.onState();
+      return;
+    }
+    this.cue(parts[0], urgency);
+    this.chain = {
+      parts
+    };
+    // 'soon' / 'now' plan the entry right away; 'natural' enters at the loop end
+    const last = this.queue[this.queue.length - 1];
+    this.chainPlanned = !this.advanceArmed && last && last.segIndex === parts[0] ? 0 : -1;
+    this.onState();
+  }
+  stopChain() {
+    if (!this.chain) return;
+    this.chain = null;
+    this.onState();
+  }
+  // position in the chain of the part playing now (or -1)
+  chainNow() {
+    if (!this.chain || !this.playing) return -1;
+    if (this.chainPlanned < 0) return -1;
+    const last = this.queue[this.queue.length - 1];
+    const now = this.ctx.currentTime;
+    // the queue may already hold the next chain part (lookahead)
+    if (last && last.t0 > now && this.queue.length > 1) {
+      const n = this.chain.parts.length;
+      return (this.chainPlanned - 1 + n) % n;
+    }
+    return this.chainPlanned;
   }
   // Time until the planned transition (sec of ctx time), null if none is planned
   transitionEta() {
@@ -1721,6 +1942,7 @@ class LoopPlayer {
   }
   stop(notify = true) {
     this.playing = false;
+    this.chain = null;
     this.advanceArmed = false;
     this.targetIndex = null;
     clearTimeout(this._reschedT);
@@ -1745,6 +1967,441 @@ class LoopPlayer {
     if (now < cur.t0) return cur.trackStart;
     return cur.trackStart + (now - cur.t0) * (this.rate || 1);
   }
+}
+
+// ============================== Samples ======================================
+// Render track[from, to) the way it sounds now (layers, speed, reverb) into a
+// stereo WAV. Offline, faster than real time; the live player isn't touched.
+async function renderSample(player, from, to) {
+  const rate = player.rate || 1;
+  const src0 = player.stems ? Object.values(player.stems).find(Boolean) : player.buffer;
+  const sr = src0.sampleRate;
+  const dur = (to - from) / rate;
+  const reverb = player.reverb || 0;
+  const tail = reverb > 0 ? 2.5 : 0; // let the reverb ring out
+  const len = Math.ceil((dur + tail) * sr);
+  const ctx = new OfflineAudioContext(2, len, sr);
+  const out = ctx.createGain();
+  out.connect(ctx.destination);
+  const fade = Math.min(0.006, dur / 4);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0, 0);
+  env.gain.linearRampToValueAtTime(1, fade);
+  env.gain.setValueAtTime(1, Math.max(fade, dur - fade));
+  env.gain.linearRampToValueAtTime(0, dur);
+  env.connect(out);
+  const start = (buf, dest) => {
+    const s = ctx.createBufferSource();
+    s.buffer = buf;
+    s.playbackRate.value = rate;
+    s.connect(dest);
+    s.start(0, from, to - from);
+  };
+  if (player.stems) {
+    for (const name of ['drums', 'bass', 'other', 'vocals']) {
+      const buf = player.stems[name];
+      const st = (player.layers || {})[name] || {
+        on: true,
+        vol: 1
+      };
+      if (!buf || !st.on || st.vol <= 0) continue;
+      const g = ctx.createGain();
+      g.gain.value = st.vol;
+      g.connect(env);
+      start(buf, g);
+    }
+  } else {
+    start(player.buffer, env);
+  }
+  if (reverb > 0) {
+    const conv = ctx.createConvolver();
+    const ir = ctx.createBuffer(2, Math.floor(sr * 2.8), sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2.2);
+    }
+    conv.buffer = ir;
+    const wet = ctx.createGain();
+    wet.gain.value = reverb;
+    env.connect(conv);
+    conv.connect(wet);
+    wet.connect(ctx.destination);
+  }
+  const rendered = await ctx.startRendering();
+  // trim the reverb tail where it has died away (< -60 dB)
+  let end = rendered.length;
+  if (tail) {
+    const L = rendered.getChannelData(0),
+      R = rendered.getChannelData(1);
+    const minEnd = Math.ceil(dur * sr);
+    while (end > minEnd && Math.abs(L[end - 1]) < 0.001 && Math.abs(R[end - 1]) < 0.001) end--;
+  }
+  return {
+    wav: encodeWav(rendered, end),
+    duration: end / sr
+  };
+}
+function encodeWav(buf, frames) {
+  const n = frames || buf.length,
+    ch = buf.numberOfChannels,
+    sr = buf.sampleRate;
+  const ab = new ArrayBuffer(44 + n * ch * 2);
+  const v = new DataView(ab);
+  const w = (o, str) => {
+    for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i));
+  };
+  w(0, 'RIFF');
+  v.setUint32(4, 36 + n * ch * 2, true);
+  w(8, 'WAVE');
+  w(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, ch, true);
+  v.setUint32(24, sr, true);
+  v.setUint32(28, sr * ch * 2, true);
+  v.setUint16(32, ch * 2, true);
+  v.setUint16(34, 16, true);
+  w(36, 'data');
+  v.setUint32(40, n * ch * 2, true);
+  const chans = Array.from({
+    length: ch
+  }, (_, c) => buf.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < n; i++) {
+    for (let c = 0; c < ch; c++) {
+      const x = Math.max(-1, Math.min(1, chans[c][i]));
+      v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+      o += 2;
+    }
+  }
+  return new Blob([ab], {
+    type: 'audio/wav'
+  });
+}
+
+// Samples play on the track player's AudioContext, straight into the output
+// (not through the track's master), so the track's fades and volume don't
+// touch them. One voice per sample: pressing it again stops it.
+//
+// Beat sync ("on the beat", default on): the sample's first bar line lands on
+// the next bar line of the playing track (a beat for samples shorter than a
+// bar), its speed follows the track's tempo when they are close (±10%), and a
+// looped sample is re-aligned to the track's bar lines on every pass, so it
+// can't drift. A loop pass is the sample's bars only, not the reverb tail.
+class SamplePlayer {
+  constructor(player) {
+    this.player = player;
+    this.buffers = {};
+    this.voices = {};
+    this.pending = new Set();
+    this.volume = 1;
+    this.onState = () => {};
+  }
+  async load(sm) {
+    if (this.buffers[sm.id]) return this.buffers[sm.id];
+    this.player._ensureCtx();
+    const ab = await (await fetch(`/api/samples/${sm.id}/audio`)).arrayBuffer();
+    this.buffers[sm.id] = await this.player.decode(ab);
+    return this.buffers[sm.id];
+  }
+  playing(id) {
+    return !!this.voices[id];
+  }
+  // the sample's own grid: where its first bar line is, how long its bars are
+  _info(sm, buf) {
+    let body = sm.body || (sm.to != null && sm.from != null ? (sm.to - sm.from) / (sm.rate || 1) : buf.duration);
+    body = Math.min(body, buf.duration);
+    const dbs = Array.isArray(sm.downbeats) ? sm.downbeats.filter(x => x >= 0 && x < body) : [];
+    const d0 = dbs.length && dbs[0] < body / 2 ? dbs[0] : 0;
+    let barLen = null;
+    if (dbs.length >= 2) {
+      const d = dbs.slice(1).map((x, i) => x - dbs[i]).sort((a, b) => a - b);
+      barLen = d[Math.floor(d.length / 2)];
+    }
+    return {
+      body,
+      d0,
+      barLen,
+      bpm: sm.bpm || null
+    };
+  }
+  // track tempo now (BPM as heard, speed included) from the beats around the playhead
+  _trackBpm() {
+    const P = this.player,
+      pos = P.position(),
+      b = P.beats || [];
+    if (pos == null || b.length < 4) return null;
+    let i = b.findIndex(x => x > pos);
+    if (i < 0) i = b.length - 1;
+    const w = b.slice(Math.max(0, i - 8), Math.min(b.length, i + 8));
+    const d = w.slice(1).map((x, k) => x - w[k]).sort((a, c) => a - c);
+    const per = d[Math.floor(d.length / 2)];
+    return per > 0 ? 60 / per * (P.rate || 1) : null;
+  }
+  // track bar lines (or beats) as AudioContext times, from what the player has planned
+  _grid(fromCtx, toCtx, bars) {
+    const P = this.player;
+    if (!P.playing || !P.queue.length) return [];
+    const list = (bars ? P.downbeats : P.beats) || [],
+      r = P.rate || 1,
+      out = [];
+    for (const q of P.queue) {
+      const a = Math.max(q.t0, fromCtx),
+        b = Math.min(q.t1, toCtx);
+      if (b <= a) continue;
+      const pa = q.trackStart + (a - q.t0) * r,
+        pb = q.trackStart + (b - q.t0) * r;
+      for (const x of list) if (x >= pa && x < pb) out.push(q.t0 + (x - q.trackStart) / r);
+    }
+    out.sort((x, y) => x - y);
+    return out.filter((x, k) => k === 0 || x - out[k - 1] > 0.03); // crossfade overlaps
+  }
+  // bar length of the track now, in ctx seconds
+  _trackBarCtx() {
+    const P = this.player,
+      pos = P.position(),
+      d = P.downbeats || [];
+    if (pos == null || d.length < 2) return null;
+    let i = d.findIndex(x => x > pos);
+    if (i < 1) i = 1;
+    return (d[i] - d[i - 1]) / (P.rate || 1);
+  }
+  async trigger(sm, opts = {}) {
+    if (this.voices[sm.id]) {
+      this.stop(sm.id);
+      return;
+    }
+    if (this.pending.has(sm.id)) return; // still loading (double click)
+    this.pending.add(sm.id);
+    let buf;
+    try {
+      buf = await this.load(sm);
+    } finally {
+      this.pending.delete(sm.id);
+    }
+    const P = this.player,
+      ctx = P.ctx,
+      now = ctx.currentTime;
+    const info = this._info(sm, buf);
+    const sync = !!opts.onBeat && P.playing;
+    // follow the track's tempo when it is close
+    let pr = 1;
+    if (sync && info.bpm) {
+      const tb = this._trackBpm();
+      if (tb) {
+        const k = tb / info.bpm;
+        if (k > 0.9 && k < 1.11) pr = k;
+      }
+    }
+    const trackBar = sync ? this._trackBarCtx() : null;
+    const barScale = info.barLen ? info.barLen / pr : trackBar;
+    const useBars = !barScale || (info.body - info.d0) / pr >= 0.75 * barScale;
+    const g = ctx.createGain();
+    g.gain.value = (sm.volume != null ? sm.volume : 1) * this.volume;
+    g.connect(ctx.destination);
+    const v = {
+      sm,
+      buf,
+      info,
+      pr,
+      g,
+      sync,
+      useBars,
+      srcs: [],
+      timer: null,
+      nextAt: null
+    };
+    // first pass: the sample's first bar line (d0) on the next track bar line
+    let at = now + 0.03;
+    if (sync) {
+      const look = (barScale || 2.5) * 1.2 + 0.1;
+      const grid = this._grid(now + 0.05, now + look, useBars);
+      if (grid.length) at = grid[0];
+    }
+    let startT = at - info.d0 / pr,
+      offset = 0;
+    if (startT < now + 0.02) {
+      offset = (now + 0.02 - startT) * pr;
+      startT = now + 0.02;
+    }
+    this._play(v, startT, offset, !sm.loop);
+    if (sm.loop) {
+      v.nextAt = at + (info.body - info.d0) / pr;
+      v.timer = setInterval(() => this._tickLoop(v), 50);
+    }
+    this.voices[sm.id] = v;
+    this.onState();
+  }
+  _play(v, when, offset, once) {
+    const ctx = this.player.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = v.buf;
+    src.playbackRate.value = v.pr;
+    const eg = ctx.createGain();
+    eg.gain.value = 1;
+    src.connect(eg);
+    eg.connect(v.g);
+    src.start(when, Math.max(0, offset));
+    const rec = {
+      src,
+      eg,
+      when
+    };
+    v.srcs.push(rec);
+    src.onended = () => {
+      v.srcs = v.srcs.filter(r => r !== rec);
+      if (once && this.voices[v.sm.id] === v && !v.srcs.length) {
+        delete this.voices[v.sm.id];
+        this.onState();
+      }
+    };
+    return rec;
+  }
+  // loop: schedule the next pass shortly before it is due, snapped to the
+  // track's bar line near the expected time (keeps it locked to the track)
+  _tickLoop(v) {
+    if (this.voices[v.sm.id] !== v) {
+      clearInterval(v.timer);
+      return;
+    }
+    const ctx = this.player.ctx,
+      now = ctx.currentTime;
+    if (v.nextAt - now > 0.3) return;
+    let at = v.nextAt;
+    if (v.sync && this.player.playing) {
+      const unit = (v.useBars ? v.info.barLen || 2 : 0.5) / v.pr;
+      const grid = this._grid(at - unit * 0.2, at + unit * 0.2, v.useBars);
+      if (grid.length) at = grid.reduce((a, b) => Math.abs(b - v.nextAt) < Math.abs(a - v.nextAt) ? b : a);
+      // a tempo change on the track: follow it from the next pass on
+      if (v.info.bpm) {
+        const tb = this._trackBpm();
+        if (tb) {
+          const k = tb / v.info.bpm;
+          if (k > 0.9 && k < 1.11) v.pr = k;
+        }
+      }
+    }
+    if (at < now + 0.01) at = now + 0.01;
+    // the previous pass ends where this one starts (its reverb tail rings on)
+    const tailFade = (v.sm.reverb || 0) > 0 ? 0.6 : 0.012;
+    for (const r of v.srcs) {
+      try {
+        r.eg.gain.cancelScheduledValues(at);
+        r.eg.gain.setValueAtTime(1, at);
+        r.eg.gain.linearRampToValueAtTime(0, at + tailFade);
+        r.src.stop(at + tailFade + 0.02);
+      } catch (e) {}
+    }
+    this._play(v, at, v.info.d0, false);
+    v.nextAt = at + (v.info.body - v.info.d0) / v.pr;
+  }
+  stop(id, fade = 0.08) {
+    const v = this.voices[id];
+    if (!v) return;
+    delete this.voices[id];
+    clearInterval(v.timer);
+    const now = this.player.ctx.currentTime;
+    try {
+      v.g.gain.cancelScheduledValues(now);
+      v.g.gain.setValueAtTime(v.g.gain.value, now);
+      v.g.gain.linearRampToValueAtTime(0, now + fade);
+      for (const r of v.srcs) {
+        try {
+          r.src.stop(now + fade + 0.02);
+        } catch (e) {}
+      }
+    } catch (e) {}
+    this.onState();
+  }
+  stopAll() {
+    Object.keys(this.voices).forEach(id => this.stop(id));
+  }
+  setVolume(v) {
+    this.volume = v;
+    for (const [id, voice] of Object.entries(this.voices)) {
+      const sm = this._meta && this._meta[id];
+      voice.g.gain.value = (sm && sm.volume != null ? sm.volume : 1) * v;
+    }
+  }
+  forget(id) {
+    this.stop(id);
+    delete this.buffers[id];
+  }
+}
+
+// Part chain: parts played one pass each, in order, round and round.
+function ChainBar({
+  t,
+  segments,
+  parts,
+  setParts,
+  edit,
+  setEdit,
+  active,
+  nowPos,
+  onPlay,
+  onStop
+}) {
+  const col = i => {
+    const s = segments[i];
+    return s ? SEG_COLORS[(s.group ? s.group.charCodeAt(0) - 65 : i) % SEG_COLORS.length] : 'var(--muted)';
+  };
+  if (!edit && !parts.length) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "chain-bar"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "ghost tip",
+      "data-tip": t.chain_tip,
+      onClick: () => setEdit(true)
+    }, t.chain_build));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "chain-bar"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "badge tip",
+    "data-tip": t.chain_tip
+  }, "\u26D3 ", t.chain_title), parts.length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "hint"
+  }, t.chain_empty), parts.map((p, k) => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: k
+  }, k > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "chain-arrow"
+  }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+    className: 'chain-step' + (active && nowPos === k ? ' on' : '')
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "dot",
+    style: {
+      background: col(p)
+    }
+  }), segments[p] ? segments[p].label : '?', edit && /*#__PURE__*/React.createElement("span", {
+    className: "x",
+    title: t.chain_remove_tip,
+    onClick: () => setParts(ps => ps.filter((_, j) => j !== k))
+  }, "\u2715")))), parts.length > 1 && /*#__PURE__*/React.createElement("span", {
+    className: "chain-arrow"
+  }, "\u21BA"), edit && /*#__PURE__*/React.createElement("span", {
+    className: "hint"
+  }, t.chain_build_hint), edit && /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => setEdit(false)
+  }, t.chain_done), !edit && /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => setEdit(true)
+  }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => {
+      setParts([]);
+      setEdit(false);
+      if (active) onStop();
+    }
+  }, t.chain_clear), !active ? /*#__PURE__*/React.createElement("button", {
+    className: "primary chain-play",
+    disabled: !parts.length,
+    onClick: onPlay
+  }, t.chain_play) : /*#__PURE__*/React.createElement("button", {
+    className: "chain-stop",
+    onClick: onStop
+  }, t.chain_stop));
 }
 
 // Track name form (Add to library / rename). Enter saves, Esc cancels.
@@ -1899,7 +2556,7 @@ function Waveform({
         ctx.beginPath();
         ctx.rect(tx(s.start), 0, tx(s.end) - tx(s.start), H);
         ctx.clip();
-        ctx.strokeStyle = '#ffffff14';
+        ctx.strokeStyle = TC.hatch;
         ctx.beginPath();
         const step = 14;
         for (let x = tx(s.start) - H; x < tx(s.end); x += step) {
@@ -2489,11 +3146,12 @@ function App() {
   // --- UI theme --------------------------------------------------------------
   const [theme, setThemeState] = useState(() => {
     const t0 = localStorage.getItem('musloop_theme');
-    return t0 === 'tavern' || t0 === 'mono' ? t0 : 'mono';
+    return THEMES.some(x => x.id === t0) ? t0 : 'mono';
   });
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('musloop_theme', theme);
+    applySegPalette(theme);
   }, [theme]);
   const [trackId, setTrackId] = useState(null);
   const [trackName, setTrackName] = useState('');
@@ -2593,6 +3251,14 @@ function App() {
   // when a transition lands (Next, part click, hotkeys, scenes):
   // natural (loop end) | soon (phrase boundary) | now (short crossfade)
   const [cueMode, setCueMode] = useState('natural');
+  // part chain of the open track (not saved with the markup: a working list).
+  // chainEdit: picking parts for it by clicking the chips
+  const [chainParts, setChainParts] = useState([]);
+  const [chainEdit, setChainEdit] = useState(false);
+  useEffect(() => {
+    setChainParts([]);
+    setChainEdit(false);
+  }, [trackId]);
   // --- Scenes: saved playback states of this track (part + layers + fx) ----
   const [scenes, setScenesRaw] = useState([]);
   const [liveMode, setLiveMode] = useState(false);
@@ -2658,7 +3324,10 @@ function App() {
     player.phraseBars = phraseBars;
   }, [phraseBars]);
   useEffect(() => {
-    if (analysis) player.downbeats = analysis.downbeats || [];
+    if (analysis) {
+      player.downbeats = analysis.downbeats || [];
+      player.beats = analysis.beats || [];
+    }
   }, [analysis]);
   useEffect(() => () => player.stop(false), []);
   // while a transition is pending, refresh the ETA label once a second
@@ -2771,6 +3440,115 @@ function App() {
     } catch (e) {
       setError(String(e.message || e));
       setStemsState('none');
+    } finally {
+      setLoading(null);
+    }
+  };
+  // --- Samples (short sounds over any track) --------------------------------
+  const samplerRef = useRef(null);
+  if (!samplerRef.current) samplerRef.current = new SamplePlayer(player);
+  const sampler = samplerRef.current;
+  useEffect(() => {
+    sampler.onState = () => force(x => x + 1);
+  }, []);
+  const [samples, setSamples] = useState([]);
+  const [sampleOnBeat, setSampleOnBeat] = useState(() => localStorage.getItem('musloop_sample_beat') !== '0');
+  useEffect(() => {
+    localStorage.setItem('musloop_sample_beat', sampleOnBeat ? '1' : '0');
+  }, [sampleOnBeat]);
+  const [sampleVol, setSampleVolState] = useState(() => {
+    const v = parseFloat(localStorage.getItem('musloop_sample_vol'));
+    return isFinite(v) ? v : 1;
+  });
+  const setSampleVol = v => {
+    setSampleVolState(v);
+    localStorage.setItem('musloop_sample_vol', String(v));
+    sampler.setVolume(v);
+  };
+  useEffect(() => {
+    sampler.volume = sampleVol;
+  }, []);
+  const [sampleEdit, setSampleEdit] = useState(null); // {track_id: 'sample:<id>' | 'new', value, ...}
+  const loadSamples = useCallback(async () => {
+    try {
+      const r = await fetch('/api/samples');
+      if (r.ok) {
+        const j = await r.json();
+        setSamples(j.samples);
+        sampler._meta = Object.fromEntries(j.samples.map(x => [x.id, x]));
+      }
+    } catch (e) {}
+  }, []);
+  useEffect(() => {
+    loadSamples();
+  }, []);
+  const fireSample = sm => {
+    sampler.trigger(sm, {
+      onBeat: sampleOnBeat
+    }).catch(e => setError(String(e.message || e)));
+  };
+  const patchSample = async (sm, patch) => {
+    if (patch.loop !== undefined) sampler.stop(sm.id); // re-trigger with the new mode
+    const r = await fetch(`/api/samples/${sm.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(patch)
+    });
+    if (r.ok) loadSamples();
+  };
+  const deleteSample = async sm => {
+    if (!window.confirm(t.sample_del_confirm.replace('{name}', sm.name))) return;
+    sampler.forget(sm.id);
+    await fetch(`/api/samples/${sm.id}`, {
+      method: 'DELETE'
+    });
+    loadSamples();
+  };
+  // "Save as sample": render part i the way it sounds now
+  const saveSample = async (i, name) => {
+    const seg = segments[i];
+    if (!seg || !player.buffer) return;
+    setLoading(t.sample_saving);
+    try {
+      player._ensureCtx();
+      const {
+        wav,
+        duration: d
+      } = await renderSample(player, seg.start, seg.end);
+      const rr = player.rate || 1;
+      const inPart = (player.downbeats || []).filter(x => x >= seg.start - 0.02 && x < seg.end - 0.02);
+      const bts = (player.beats || []).filter(x => x >= seg.start - 0.02 && x <= seg.end + 0.02);
+      const bd = bts.slice(1).map((x, k) => x - bts[k]).sort((a, b) => a - b);
+      const per = bd.length ? bd[Math.floor(bd.length / 2)] : 0;
+      const meta = {
+        name: name || seg.label,
+        source_track: trackId,
+        source_name: trackName,
+        from: seg.start,
+        to: seg.end,
+        duration: d,
+        rate: rr,
+        reverb: player.reverb || 0,
+        layers: player.stems ? player.layers : null,
+        loop: seg.loop !== false,
+        body: (seg.end - seg.start) / rr,
+        downbeats: inPart.map(x => Math.max(0, (x - seg.start) / rr)),
+        bpm: per > 0 ? 60 / per * rr : null
+      };
+      const fd = new FormData();
+      fd.append('file', wav, 'sample.wav');
+      const r = await fetch(`/api/samples?meta=${encodeURIComponent(JSON.stringify(meta))}`, {
+        method: 'POST',
+        body: fd
+      });
+      if (!r.ok) throw new Error((await r.json()).detail || t.err_upload);
+      const sm = await r.json();
+      showToast(`🎵 ${t.sample_saved} ${sm.name}`);
+      loadSamples();
+    } catch (e) {
+      setError(String(e.message || e));
     } finally {
       setLoading(null);
     }
@@ -3031,7 +3809,7 @@ function App() {
           downbeats_auto: analysis.downbeats_auto,
           n_suggested: analysis.n_suggested,
           n_max: analysis.n_max,
-          grid_v: analysis.grid_v || 3,
+          grid_v: analysis.grid_v || 5,
           engine: analysis.engine,
           segments,
           scenes
@@ -4167,6 +4945,18 @@ function App() {
   };
   const playingSeg = player.playing ? player.segIndex : -1;
   const duration = analysis ? analysis.duration : 0;
+  // parts deleted / re-analysed: keep only chain steps that still exist
+  useEffect(() => {
+    setChainParts(cp => cp.filter(i => i < segments.length));
+    if (player.chain && player.chain.parts.some(i => i >= segments.length)) player.stopChain();
+  }, [segments.length]);
+  const chainActive = !!player.chain;
+  const chainNow = player.chainNow();
+  const playChain = () => {
+    if (!chainParts.length) return;
+    setChainEdit(false);
+    player.startChain(chainParts, cueMode);
+  };
   const splitRef = useRef(splitAtPlayhead);
   splitRef.current = splitAtPlayhead;
   // hotkey handlers read the latest state through a ref (the listener is bound once)
@@ -4183,7 +4973,9 @@ function App() {
     trackId,
     liveStepTrack,
     setLiveTracksOpen,
-    liveTracksOpen
+    liveTracksOpen,
+    samples,
+    fireSample
   };
   useEffect(() => {
     const h = e => {
@@ -4195,6 +4987,16 @@ function App() {
         return;
       }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const m = /^(?:Key([A-Z])|Digit([0-9]))$/.exec(e.code);
+        const ch = m ? (m[1] || m[2]).toLowerCase() : null;
+        const sm = ch && (k.samples || []).find(x => x.hotkey === ch);
+        if (sm) {
+          e.preventDefault();
+          k.fireSample(sm);
+          return;
+        }
+      }
       if (e.code === 'Escape' && k.liveMode && k.liveTracksOpen) {
         e.preventDefault();
         k.setLiveTracksOpen(false);
@@ -4540,7 +5342,9 @@ function App() {
       document.body.style.overflow = '';
     };
   }, [liveMode]);
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("header", null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'app-shell' + (analysis ? ' has-track' : '')
+  }, /*#__PURE__*/React.createElement("header", null, /*#__PURE__*/React.createElement("div", {
     className: "logo"
   }, /*#__PURE__*/React.createElement("button", {
     className: 'drawer-btn' + (drawerOpen ? ' on' : ''),
@@ -4550,7 +5354,7 @@ function App() {
     "aria-expanded": drawerOpen
   }, /*#__PURE__*/React.createElement("span", {
     className: "burger"
-  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null))), /*#__PURE__*/React.createElement("h1", null, theme === 'tavern' ? 'Musloop' : 'musloop'), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null))), /*#__PURE__*/React.createElement("h1", null, theme === 'mono' ? 'musloop' : 'Musloop'), /*#__PURE__*/React.createElement("div", {
     className: "sub"
   }, t.tagline)), /*#__PURE__*/React.createElement("div", {
     className: "row",
@@ -4559,15 +5363,12 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "theme-switch"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: theme === 'mono' ? 'on' : '',
-    title: t.theme_mono,
-    onClick: () => setThemeState('mono')
-  }, "\u25AA"), /*#__PURE__*/React.createElement("button", {
-    className: theme === 'tavern' ? 'on' : '',
-    title: t.theme_tavern,
-    onClick: () => setThemeState('tavern')
-  }, "\u2694")), /*#__PURE__*/React.createElement("div", {
+  }, THEMES.map(th => /*#__PURE__*/React.createElement("button", {
+    key: th.id,
+    className: theme === th.id ? 'on' : '',
+    title: t['theme_' + th.id],
+    onClick: () => setThemeState(th.id)
+  }, th.icon))), /*#__PURE__*/React.createElement("div", {
     className: "lang-switch"
   }, /*#__PURE__*/React.createElement("button", {
     className: lang === 'ru' ? 'on' : '',
@@ -4579,7 +5380,7 @@ function App() {
     className: lang === 'zh' ? 'on' : '',
     onClick: () => setLanguage('zh')
   }, "\u4E2D\u6587")))), /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+    className: "panel upload-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
   }, t.upload_title), !analysis ? /*#__PURE__*/React.createElement("div", {
@@ -4661,7 +5462,7 @@ function App() {
     },
     onClick: () => setError(null)
   }, "\u2715"), t.err_prefix, " ", error)), analysis && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+    className: "panel parts-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "panel-title"
   }, t.structure_title), /*#__PURE__*/React.createElement("div", {
@@ -4886,8 +5687,12 @@ function App() {
     const isQueued = player.pendingTarget() === i;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
-      className: 'seg-chip' + (i === player.segIndex ? ' active' : '') + (isQueued ? ' queued' : ''),
+      className: 'seg-chip' + (i === player.segIndex ? ' active' : '') + (isQueued ? ' queued' : '') + (chainEdit ? ' chain-pick' : ''),
       onClick: () => {
+        if (chainEdit) {
+          setChainParts(cp => [...cp, i]);
+          return;
+        }
         if (!player.playing) {
           player.segIndex = i;
           force(x => x + 1);
@@ -4899,7 +5704,7 @@ function App() {
         }
         player.cue(i, cueMode);
       },
-      title: player.playing ? t.chip_cue_tip : t.chip_select_tip
+      title: chainEdit ? t.chain_add_tip : player.playing ? t.chip_cue_tip : t.chip_select_tip
     }, /*#__PURE__*/React.createElement("div", {
       className: "dot",
       style: {
@@ -4931,7 +5736,10 @@ function App() {
       style: {
         color: 'var(--accent)'
       }
-    }, t.queued_badge), /*#__PURE__*/React.createElement("span", {
+    }, t.queued_badge), chainParts.includes(i) && /*#__PURE__*/React.createElement("span", {
+      className: "chain-n",
+      title: t.chain_title
+    }, chainParts.map((p, k) => p === i ? k + 1 : null).filter(x => x).join(',')), /*#__PURE__*/React.createElement("span", {
       className: "x",
       title: t.loop_toggle_tip,
       style: {
@@ -5009,6 +5817,17 @@ function App() {
         }
       }
     }, t['stinger_' + sg], sg !== 'none' ? ' ♪' : ''))), /*#__PURE__*/React.createElement("span", {
+      className: "x tip sample-save",
+      "data-tip": t.sample_save_tip,
+      onClick: e => {
+        e.stopPropagation();
+        setSampleEdit({
+          track_id: 'new:' + i,
+          value: s.label,
+          seg: i
+        });
+      }
+    }, "\uD83D\uDCBE"), /*#__PURE__*/React.createElement("span", {
       className: "x",
       title: t.split_seg_tip,
       onClick: e => {
@@ -5023,8 +5842,51 @@ function App() {
         removeSeg(i);
       }
     }, "\u2715"));
-  }))), analysis && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+  })), sampleEdit && sampleEdit.track_id.startsWith('new:') && /*#__PURE__*/React.createElement("div", {
+    className: "dropdown",
+    style: {
+      width: '100%'
+    }
+  }, /*#__PURE__*/React.createElement(NameForm, {
+    ed: {
+      ...sampleEdit,
+      fav: false
+    },
+    setEd: ed => setSampleEdit(ed ? {
+      ...sampleEdit,
+      value: ed.value
+    } : null),
+    t: {
+      ...t,
+      name_label: t.sample_name,
+      name_hint: t.sample_save_tip,
+      name_save: t.sample_save
+    },
+    onSave: () => {
+      const ed = sampleEdit;
+      setSampleEdit(null);
+      saveSample(ed.seg, ed.value.trim());
+    },
+    style: {
+      position: 'static',
+      boxShadow: 'none',
+      marginTop: 8,
+      minWidth: 0,
+      maxWidth: 420
+    }
+  })), /*#__PURE__*/React.createElement(ChainBar, {
+    t: t,
+    segments: segments,
+    parts: chainParts,
+    setParts: setChainParts,
+    edit: chainEdit,
+    setEdit: setChainEdit,
+    active: chainActive,
+    nowPos: chainNow,
+    onPlay: playChain,
+    onStop: () => player.stopChain()
+  })), analysis && /*#__PURE__*/React.createElement("div", {
+    className: "panel player-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row between"
   }, /*#__PURE__*/React.createElement("div", {
@@ -5067,7 +5929,13 @@ function App() {
     className: "now"
   }, player.playing && /*#__PURE__*/React.createElement("span", {
     className: "eq"
-  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null)), player.playing ? /*#__PURE__*/React.createElement("span", null, t.playing, " ", /*#__PURE__*/React.createElement("b", null, segments[player.segIndex] ? segments[player.segIndex].label : '–'), "\xA0\xB7 ", t.pass, player.loopCount, t.pass_suffix || '', (() => {
+  }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null)), player.playing ? /*#__PURE__*/React.createElement("span", null, t.playing, " ", /*#__PURE__*/React.createElement("b", null, segments[player.segIndex] ? segments[player.segIndex].label : '–'), chainActive && chainNow >= 0 && /*#__PURE__*/React.createElement("span", {
+    className: "time",
+    style: {
+      marginLeft: 6,
+      color: 'var(--accent2)'
+    }
+  }, "\u26D3 ", chainNow + 1, "/", player.chain.parts.length), "\xA0\xB7 ", t.pass, player.loopCount, t.pass_suffix || '', (() => {
     const tgt = player.pendingTarget();
     if (tgt == null || !segments[tgt]) return null;
     const eta = player.transitionEta();
@@ -5327,8 +6195,127 @@ function App() {
     onClick: unloadStems
   }, t.stems_off))), /*#__PURE__*/React.createElement("div", {
     className: "hint"
-  }, t.keys_hint)), (analysis || otherSceneGroups.length > 0) && /*#__PURE__*/React.createElement("div", {
-    className: "panel"
+  }, t.keys_hint)), (analysis || samples.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "panel samples-panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "row between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-title tip",
+    "data-tip": t.samples_tip,
+    style: {
+      marginBottom: 0
+    }
+  }, "\uD83C\uDFB5 ", t.samples_title), samples.length > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "count"
+  }, "(", samples.length, ")")), /*#__PURE__*/React.createElement("div", {
+    className: "row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "chk tip",
+    "data-tip": t.sample_on_beat_tip
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: sampleOnBeat,
+    onChange: e => setSampleOnBeat(e.target.checked)
+  }), t.sample_on_beat), /*#__PURE__*/React.createElement("span", {
+    className: "badge"
+  }, t.sample_vol), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "0",
+    max: "1.5",
+    step: "0.01",
+    value: sampleVol,
+    style: {
+      width: 100,
+      accentColor: 'var(--accent)'
+    },
+    onChange: e => setSampleVol(+e.target.value)
+  }), Object.keys(sampler.voices).length > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "ghost",
+    onClick: () => sampler.stopAll()
+  }, t.sample_stop_all))), samples.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: 8
+    }
+  }, t.samples_empty), samples.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "sample-grid"
+  }, samples.map(sm => {
+    const on = sampler.playing(sm.id);
+    const editing = sampleEdit && sampleEdit.track_id === 'sample:' + sm.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: sm.id,
+      className: 'sample-pad' + (on ? ' on' : ''),
+      onClick: () => !editing && fireSample(sm),
+      title: sm.source_name ? `${t.sample_from} ${sm.source_name}` : ''
+    }, editing ? /*#__PURE__*/React.createElement("input", {
+      autoFocus: true,
+      value: sampleEdit.value,
+      onClick: e => e.stopPropagation(),
+      onChange: e => setSampleEdit({
+        ...sampleEdit,
+        value: e.target.value
+      }),
+      onKeyDown: e => {
+        if (e.key === 'Enter' && sampleEdit.value.trim()) {
+          patchSample(sm, {
+            name: sampleEdit.value.trim()
+          });
+          setSampleEdit(null);
+        }
+        if (e.key === 'Escape') setSampleEdit(null);
+      },
+      onBlur: () => setSampleEdit(null)
+    }) : /*#__PURE__*/React.createElement("span", {
+      className: "nm"
+    }, on && /*#__PURE__*/React.createElement("span", {
+      className: "eq",
+      style: {
+        marginRight: 4
+      }
+    }, /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null), /*#__PURE__*/React.createElement("i", null)), sm.name), /*#__PURE__*/React.createElement("span", {
+      className: "sub"
+    }, sm.duration != null ? fmt(sm.duration) : '', sm.source_name ? ` · ${sm.source_name.replace(/\.[^.]+$/, '')}` : ''), /*#__PURE__*/React.createElement("span", {
+      className: "opts"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: 'lp' + (sm.loop ? ' on' : ''),
+      title: t.sample_loop_tip,
+      onClick: e => {
+        e.stopPropagation();
+        patchSample(sm, {
+          loop: !sm.loop
+        });
+      }
+    }, sm.loop ? t.sample_loop : t.sample_once)), /*#__PURE__*/React.createElement("span", {
+      className: "tools"
+    }, /*#__PURE__*/React.createElement("span", {
+      title: t.sample_key_tip,
+      onClick: e => {
+        e.stopPropagation();
+        const k = window.prompt(t.sample_key_tip, sm.hotkey || '');
+        if (k !== null) patchSample(sm, {
+          hotkey: k.trim().slice(0, 1).toLowerCase() || null
+        });
+      }
+    }, "\u2328"), /*#__PURE__*/React.createElement("span", {
+      title: t.sample_rename_tip,
+      onClick: e => {
+        e.stopPropagation();
+        setSampleEdit({
+          track_id: 'sample:' + sm.id,
+          value: sm.name
+        });
+      }
+    }, "\u270E"), /*#__PURE__*/React.createElement("span", {
+      title: t.sample_del_tip,
+      onClick: e => {
+        e.stopPropagation();
+        deleteSample(sm);
+      }
+    }, "\u2715")), sm.hotkey && /*#__PURE__*/React.createElement("kbd", null, "Alt+", sm.hotkey.toUpperCase()));
+  }))), (analysis || otherSceneGroups.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "panel scenes-panel"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row between"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6076,7 +7063,28 @@ function App() {
       className: "live-name"
     }, tgt != null && segments[tgt] ? segments[tgt].label : '—'), /*#__PURE__*/React.createElement("div", {
       className: "live-sub"
-    }, tgt != null ? eta != null ? `${t.live_in} ${Math.max(0, eta).toFixed(0)} s` : t.live_at_boundary : t.live_pick))), /*#__PURE__*/React.createElement("div", {
+    }, tgt != null ? eta != null ? `${t.live_in} ${Math.max(0, eta).toFixed(0)} s` : t.live_at_boundary : t.live_pick))), chainParts.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "live-chain"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "live-label",
+      style: {
+        marginRight: 4
+      }
+    }, "\u26D3 ", t.chain_title), chainParts.map((p, k) => /*#__PURE__*/React.createElement(React.Fragment, {
+      key: k
+    }, k > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "chain-arrow"
+    }, "\u2192"), /*#__PURE__*/React.createElement("span", {
+      className: 'chain-step' + (chainActive && chainNow === k ? ' on' : '')
+    }, segments[p] ? segments[p].label : '?'))), /*#__PURE__*/React.createElement("span", {
+      className: "chain-arrow"
+    }, "\u21BA"), !chainActive ? /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      onClick: playChain
+    }, t.chain_play) : /*#__PURE__*/React.createElement("button", {
+      className: "ghost",
+      onClick: () => player.stopChain()
+    }, t.chain_stop)), /*#__PURE__*/React.createElement("div", {
       className: "live-grid"
     }, items.map((it, k) => {
       const firstSeg = it.kind === 'seg' && (k === 0 || items[k - 1].kind !== 'seg');
@@ -6098,7 +7106,20 @@ function App() {
       }, it.name), /*#__PURE__*/React.createElement("span", {
         className: "live-pad-sub"
       }, isOn ? t.scene_on_air : isQ ? t.queued_badge : it.sub ? it.sub : seg ? fmt(seg.end - seg.start) : ''));
-    })), /*#__PURE__*/React.createElement("div", {
+    })), samples.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "live-samples"
+    }, samples.map(sm => /*#__PURE__*/React.createElement("button", {
+      key: sm.id,
+      className: 'live-pad scene' + (sampler.playing(sm.id) ? ' on' : ''),
+      style: {
+        '--scene-col': 'var(--accent2)'
+      },
+      onClick: () => fireSample(sm)
+    }, sm.hotkey && /*#__PURE__*/React.createElement("kbd", null, "Alt+", sm.hotkey.toUpperCase()), /*#__PURE__*/React.createElement("span", {
+      className: "live-pad-name"
+    }, "\uD83C\uDFB5 ", sm.name), /*#__PURE__*/React.createElement("span", {
+      className: "live-pad-sub"
+    }, sampler.playing(sm.id) ? t.scene_on_air : sm.loop ? t.sample_loop : t.sample_once)))), /*#__PURE__*/React.createElement("div", {
       className: "live-bar"
     }, !player.playing ? /*#__PURE__*/React.createElement("button", {
       className: "primary big",
